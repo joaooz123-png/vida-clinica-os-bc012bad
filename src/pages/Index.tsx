@@ -241,6 +241,16 @@ export default function Index() {
           <div className="ml-auto flex items-center gap-2">
             <Badge variant="outline" className="border-success/40 text-success gap-1"><Lock className="h-3 w-3" /> Modo sem identificação</Badge>
             <Badge variant="outline" className="border-primary/40 text-primary">Dr. João Otávio Rennó Grilo</Badge>
+            <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-secondary/40 p-1" title="Motor de IA">
+              <button
+                onClick={() => setAiProvider("gemini")}
+                className={`px-2 py-1 text-xs rounded-md transition ${aiProvider === "gemini" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              >Gemini</button>
+              <button
+                onClick={() => setAiProvider("openai")}
+                className={`px-2 py-1 text-xs rounded-md transition ${aiProvider === "openai" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              >OpenAI</button>
+            </div>
             <a href="/aprendizado"><Button size="sm" variant="ghost" className="gap-2"><Brain className="h-4 w-4" /> Base de aprendizado</Button></a>
             <Button size="sm" variant="outline" onClick={newCaseAction}>+ Novo caso</Button>
           </div>
