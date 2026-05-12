@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/Markdown";
 import {
   Activity, AlertTriangle, Brain, ClipboardList, Download, FileText,
-  HeartPulse, Loader2, Lock, Microscope, Save, Sparkles, Stethoscope, Trash2
+  HeartPulse, Inbox, Link2, Loader2, Lock, Microscope, Printer, Save, Sparkles, Stethoscope, Trash2, User
 } from "lucide-react";
 import {
   CaseSession, loadCases, newCase, upsertCase, saveCases, Phase,
