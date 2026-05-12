@@ -493,20 +493,116 @@ export default function Index() {
               <h2 className="text-sm font-semibold">Linha do tempo clínica</h2>
               <Badge variant="outline" className="ml-auto text-[10px]">Caso {active.localCaseId}</Badge>
             </div>
-            {(!active.timeline || active.timeline.length === 0) ? (
-              <p className="text-sm text-muted-foreground">Sem eventos ainda. Cada execução de IA e salvamento gera um evento.</p>
-            ) : (
-              <ol className="relative border-l border-border/60 ml-2 space-y-3">
-                {[...active.timeline].reverse().map((t, i) => (
-                  <li key={i} className="ml-4">
-                    <div className="absolute -left-1.5 mt-1 h-3 w-3 rounded-full bg-primary shadow-[var(--shadow-glow)]" />
-                    <div className="text-[11px] text-muted-foreground">{new Date(t.date).toLocaleString("pt-BR")} · fase {t.phase}</div>
-                    <div className="text-sm font-medium">{t.title}</div>
-                    <div className="text-xs text-muted-foreground line-clamp-2">{t.summary}</div>
-                  </li>
-                ))}
-              </ol>
-            )}
+
+            {/* Evolution snapshot — Pré → Consulta → Pós */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {([
+                {
+                  k: "pre", label: "Pré", icon: ClipboardList,
+                  color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/5",
+                  lines: [
+                    active.preAttendance.queixaPrincipal && `Queixa: ${active.preAttendance.queixaPrincipal}`,
+                    typeof active.preAttendance.dor === "number" && `Dor ${active.preAttendance.dor}/10`,
+                    active.preAttendance.duracao && `Duração ${active.preAttendance.duracao}`,
+                    active.preAttendance.padrao?.length && `Padrão: ${active.preAttendance.padrao.join(", ")}`,
+                    active.preAttendance.redFlags?.length ? `⚠ ${active.preAttendance.redFlags.length} red flag(s)` : null,
+                  ].filter(Boolean) as string[],
+                },
+                {
+                  k: "consulta", label: "Consulta", icon: Stethoscope,
+                  color: "text-primary border-primary/30 bg-primary/5",
+                  lines: [
+                    (active.consultation.jointCount?.tender || active.consultation.jointCount?.swollen)
+                      ? `Articul.: ${active.consultation.jointCount?.tender ?? 0} dolorosas / ${active.consultation.jointCount?.swollen ?? 0} edemaciadas`
+                      : null,
+                    active.consultation.hipoteses && `Hipótese: ${active.consultation.hipoteses}`,
+                    active.consultation.examFisico && `Exame físico registrado`,
+                    active.consultation.plano && `Plano discutido`,
+                  ].filter(Boolean) as string[],
+                },
+                {
+                  k: "pos", label: "Pós", icon: Brain,
+                  color: "text-warning border-warning/30 bg-warning/5",
+                  lines: [
+                    active.postConsultation.diagnosticoFinal && `Dx: ${active.postConsultation.diagnosticoFinal}`,
+                    typeof active.postConsultation.confianca === "number" && active.postConsultation.confianca > 0 && `Confiança ${active.postConsultation.confianca}/10`,
+                    active.postConsultation.conduta && `Conduta definida`,
+                    active.postConsultation.retorno && `Retorno: ${active.postConsultation.retorno}`,
+                    active.postConsultation.desfechoRetorno && `Desfecho: ${active.postConsultation.desfechoRetorno}`,
+                  ].filter(Boolean) as string[],
+                },
+              ] as const).map((s) => {
+                const I = s.icon as any;
+                return (
+                  <div key={s.k} className={`rounded-lg border p-2 ${s.color}`}>
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
+                      <I className="h-3 w-3" /> {s.label}
+                    </div>
+                    {s.lines.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground/70 mt-1.5 italic">vazio</div>
+                    ) : (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {s.lines.map((l, i) => (
+                          <li key={i} className="text-[11px] text-foreground/85 leading-snug line-clamp-2">{l}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Chronological events grouped by phase */}
+            {(() => {
+              const order: Phase[] = ["pre", "consulta", "pos"];
+              const phaseMeta: Record<Phase, { label: string; icon: any; dot: string; ring: string }> = {
+                pre: { label: "Pré-atendimento", icon: ClipboardList, dot: "bg-cyan-400", ring: "ring-cyan-400/30" },
+                consulta: { label: "Durante a consulta", icon: Stethoscope, dot: "bg-primary", ring: "ring-primary/30" },
+                pos: { label: "Pós-consulta · aprendizado", icon: Brain, dot: "bg-warning", ring: "ring-warning/30" },
+              };
+              const events = active.timeline || [];
+              if (events.length === 0) {
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Sem eventos cronológicos ainda. Cada execução de IA, geração de SOAP e salvamento de evolução é registrado aqui automaticamente.
+                  </p>
+                );
+              }
+              return (
+                <div className="space-y-4">
+                  {order.map((p) => {
+                    const evs = events.filter((e) => e.phase === p).sort((a, b) => +new Date(a.date) - +new Date(b.date));
+                    if (evs.length === 0) return null;
+                    const Pi = phaseMeta[p].icon;
+                    return (
+                      <div key={p}>
+                        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                          <Pi className="h-3 w-3" /> {phaseMeta[p].label}
+                          <span className="text-foreground/40">· {evs.length}</span>
+                        </div>
+                        <ol className="relative border-l border-border/60 ml-1.5 space-y-2.5">
+                          {evs.map((t, i) => (
+                            <li key={i} className="ml-4">
+                              <div className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full ${phaseMeta[p].dot} ring-4 ${phaseMeta[p].ring}`} />
+                              <div className="text-[10px] text-muted-foreground tabular-nums">{new Date(t.date).toLocaleString("pt-BR")}</div>
+                              <div className="text-sm font-medium leading-tight">{t.title}</div>
+                              {t.summary && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{t.summary}</div>}
+                              {t.tags?.length ? (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {t.tags.map((tg) => (
+                                    <Badge key={tg} variant="outline" className="text-[9px] py-0 px-1.5">{tg}</Badge>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="panel">
