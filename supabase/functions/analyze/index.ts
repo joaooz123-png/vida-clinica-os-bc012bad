@@ -48,57 +48,48 @@ ${JSON.stringify(postConsultation ?? {}, null, 2)}
 
 Gere a análise no formato obrigatório. Se uma seção não se aplicar, escreva "Não aplicável neste momento".`;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY ausente. Lovable AI não configurada." }),
+        JSON.stringify({ error: "GEMINI_API_KEY ausente. Configure a chave do Google Gemini no backend." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const model = Deno.env.get("AI_MODEL") || "google/gemini-2.5-flash";
+    const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-pro";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
+        systemInstruction: { role: "system", parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: "user", parts: [{ text: userContent }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
       }),
     });
 
     if (aiRes.status === 429) {
       return new Response(
-        JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em instantes." }),
+        JSON.stringify({ error: "Limite de requisições do Gemini excedido. Tente novamente em instantes." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } },
-      );
-    }
-    if (aiRes.status === 402) {
-      return new Response(
-        JSON.stringify({ error: "Créditos de IA insuficientes. Adicione créditos em Configurações > Workspace > Uso." }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } },
       );
     }
     if (!aiRes.ok) {
       const t = await aiRes.text();
-      console.error("AI gateway error", aiRes.status, t);
+      console.error("Gemini API error", aiRes.status, t);
       return new Response(
-        JSON.stringify({ error: "Falha ao consultar o modelo de IA.", detail: t }),
+        JSON.stringify({ error: "Falha ao consultar o Gemini.", detail: t }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const data = await aiRes.json();
-    const analysis = data?.choices?.[0]?.message?.content ?? "";
+    const analysis =
+      data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join("") ?? "";
 
     return new Response(
-      JSON.stringify({ analysis, provider: "lovable-ai", model }),
+      JSON.stringify({ analysis, provider: "google-gemini", model }),
       { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } },
     );
   } catch (e) {
