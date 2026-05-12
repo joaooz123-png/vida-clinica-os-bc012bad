@@ -447,23 +447,45 @@ export default function Index() {
 
         {/* Right: outputs + timeline + cases */}
         <aside className="lg:col-span-5 space-y-5">
-          <div className="panel min-h-[300px]">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">Saída da IA — copiloto clínico</h2>
-              {loading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-auto" />}
-            </div>
-            {!analysis && !loading && (
-              <div className="text-sm text-muted-foreground">
-                Preencha a triagem e clique em <span className="text-primary font-medium">Executar</span> para gerar a análise estruturada (prioridade, red flags, fenótipo, diferencial, próximos passos, SOAP, orientação ao paciente).
+          {(() => {
+            const display =
+              analysis ||
+              active.outputs.patientEducation ||
+              active.outputs.nextSteps ||
+              active.outputs.soap ||
+              active.outputs.consultationAssessment ||
+              active.outputs.triage ||
+              "";
+            return (
+              <div className="panel min-h-[300px]">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-semibold">Saída da IA — copiloto clínico</h2>
+                  {display && !loading && <Badge variant="outline" className="ml-auto text-[10px] border-primary/40 text-primary">Markdown</Badge>}
+                  {loading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-auto" />}
+                </div>
+                {loading && (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-3 w-1/3 rounded bg-secondary/60" />
+                    <div className="h-3 w-2/3 rounded bg-secondary/60" />
+                    <div className="h-3 w-1/2 rounded bg-secondary/60" />
+                    <div className="h-3 w-3/4 rounded bg-secondary/60" />
+                    <p className="text-xs text-muted-foreground pt-2">Gerando análise estruturada…</p>
+                  </div>
+                )}
+                {!loading && !display && (
+                  <div className="text-sm text-muted-foreground">
+                    Preencha a triagem e clique em <span className="text-primary font-medium">Executar análise</span>. A resposta virá em Markdown estruturado: prioridade clínica, red flags, fenótipo, diferencial ranqueado, exames, próximos passos, SOAP e orientação ao paciente.
+                  </div>
+                )}
+                {!loading && display && (
+                  <ScrollArea className="h-[60vh] pr-3">
+                    <Markdown>{display}</Markdown>
+                  </ScrollArea>
+                )}
               </div>
-            )}
-            {(analysis || active.outputs.triage || active.outputs.consultationAssessment) && (
-              <ScrollArea className="h-[60vh] pr-3">
-                <Markdown>{analysis || active.outputs.consultationAssessment || active.outputs.triage || ""}</Markdown>
-              </ScrollArea>
-            )}
-          </div>
+            );
+          })()}
 
           <div className="panel">
             <div className="flex items-center gap-2 mb-3">
