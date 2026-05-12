@@ -498,6 +498,10 @@ export default function Index() {
                     <Microscope className="h-4 w-4" /> Evidência atual
                     <Badge variant="outline" className={`ml-1 ${ENGINE_OF.evidencia.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.evidencia.name}</Badge>
                   </Button>
+                  <Button variant="secondary" onClick={() => runAI("auditoria")} disabled={loading} className="gap-2">
+                    <AlertTriangle className="h-4 w-4" /> Auditoria crítica
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.auditoria.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.auditoria.name}</Badge>
+                  </Button>
                 </div>
               </div>
             </TabsContent>
