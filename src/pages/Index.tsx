@@ -319,11 +319,20 @@ export default function Index() {
                 <Field label="Imagem (texto livre)">
                   <Textarea rows={2} value={active.preAttendance.imagens || ""} onChange={e => updatePre({ imagens: e.target.value })} />
                 </Field>
-                <div className="flex items-center gap-2 pt-1">
-                  <Button onClick={() => runAI("executar")} disabled={loading} className="gap-2">
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Executar
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Button onClick={() => runAI("executar")} disabled={loading || !filled.any} className="gap-2">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Executar análise
                   </Button>
-                  <p className="text-[11px] text-muted-foreground">A análise é gerada por IA com prompt clínico interno (não exposto).</p>
+                  {filled.any ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] text-muted-foreground">Enviando:</span>
+                      {filled.list.map(s => (
+                        <Badge key={s} variant="outline" className="border-primary/40 text-primary text-[10px]">{s}</Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">Preencha ao menos um campo da triagem para habilitar.</p>
+                  )}
                 </div>
               </div>
             </TabsContent>
