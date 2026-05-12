@@ -291,7 +291,30 @@ export default function Index() {
                 <div className="flex items-center gap-2">
                   <ClipboardList className="h-4 w-4 text-primary" />
                   <h2 className="text-sm font-semibold">Pré-atendimento — triagem estruturada</h2>
+                  {active.preAttendance.preenchidoPor === "paciente" && (
+                    <Badge variant="outline" className="ml-auto border-primary/40 text-primary gap-1 text-[10px]">
+                      <User className="h-3 w-3" /> preenchido pelo paciente
+                    </Badge>
+                  )}
                 </div>
+
+                {/* Integração com paciente */}
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                    <Link2 className="h-3.5 w-3.5" /> Questionário do paciente
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Envie o link para o paciente preencher antes da consulta, ou imprima a versão em papel. Ao final ele recebe um código <code className="text-foreground/80">MCO1-…</code> para você importar aqui.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={copyPatientLink} className="gap-2"><Link2 className="h-3.5 w-3.5" /> Copiar link</Button>
+                    <a href="/questionario" target="_blank" rel="noreferrer">
+                      <Button size="sm" variant="outline" className="gap-2"><Printer className="h-3.5 w-3.5" /> Abrir / Imprimir</Button>
+                    </a>
+                    <Button size="sm" variant="secondary" onClick={importPatientCode} className="gap-2"><Inbox className="h-3.5 w-3.5" /> Importar resposta</Button>
+                  </div>
+                </div>
+
                 <Field label="Queixa principal">
                   <Input value={active.preAttendance.queixaPrincipal || ""} onChange={e => updatePre({ queixaPrincipal: e.target.value })} placeholder="Ex.: poliartralgia simétrica há 8 semanas" />
                 </Field>
