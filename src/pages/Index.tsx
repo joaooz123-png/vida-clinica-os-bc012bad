@@ -180,7 +180,7 @@ export default function Index() {
     toast.success("Link do questionário copiado. Envie ao paciente.");
   };
 
-
+  const newCaseAction = () => {
     const n = newCase();
     const all = [n, ...cases];
     setCases(all); saveCases(all); setActiveId(n.localCaseId); setPhase("pre"); setAnalysis("");
