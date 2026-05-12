@@ -33,7 +33,8 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { preAttendance, consultation, postConsultation, mode } = payload ?? {};
+    const { preAttendance, consultation, postConsultation, mode, provider: rawProvider } = payload ?? {};
+    const provider: "gemini" | "openai" = rawProvider === "openai" ? "openai" : "gemini";
 
     const userContent = `Modo solicitado: ${mode ?? "completo"}
 
