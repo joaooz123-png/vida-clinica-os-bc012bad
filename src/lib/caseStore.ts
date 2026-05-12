@@ -64,6 +64,7 @@ export interface Outputs {
   nextSteps?: string;
   patientEducation?: string;
   evidence?: string;
+  audit?: string;
 }
 
 export interface CaseSession {

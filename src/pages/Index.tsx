@@ -92,15 +92,16 @@ export default function Index() {
 
   // Routing engine map (UI hint only — backend decides definitively)
   const ENGINE_OF: Record<string, { name: string; cls: string }> = {
-    executar:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
-    atualizar: { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
-    proximos:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
-    soap:      { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
-    educacao:  { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
-    evidencia: { name: "Grok",   cls: "border-fuchsia-500/40 text-fuchsia-300" },
+    executar:  { name: "Gemini",     cls: "border-cyan-500/40 text-cyan-300" },
+    atualizar: { name: "Gemini",     cls: "border-cyan-500/40 text-cyan-300" },
+    proximos:  { name: "Gemini",     cls: "border-cyan-500/40 text-cyan-300" },
+    soap:      { name: "OpenAI",     cls: "border-emerald-500/40 text-emerald-300" },
+    educacao:  { name: "OpenAI",     cls: "border-emerald-500/40 text-emerald-300" },
+    evidencia: { name: "Grok",       cls: "border-fuchsia-500/40 text-fuchsia-300" },
+    auditoria: { name: "OpenRouter", cls: "border-amber-500/40 text-amber-300" },
   };
 
-  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia") => {
+  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia" | "auditoria") => {
     if (!active) return;
     setLoading(true);
     setAnalysis("");
@@ -133,6 +134,7 @@ export default function Index() {
       else if (mode === "proximos") out.nextSteps = text;
       else if (mode === "educacao") out.patientEducation = text;
       else if (mode === "evidencia") out.evidence = text;
+      else if (mode === "auditoria") out.audit = text;
       update({ outputs: out });
       const titleMap: Record<string, string> = {
         executar: "Triagem pré-atendimento",
@@ -141,6 +143,7 @@ export default function Index() {
         proximos: "Próximos passos gerados",
         educacao: "Orientação ao paciente",
         evidencia: "Evidência atual (busca ao vivo)",
+        auditoria: "Auditoria crítica (segunda opinião)",
       };
       addTimeline(titleMap[mode], text.split("\n").slice(0, 3).join(" "), phase, [ENGINE_OF[mode]?.name.toLowerCase() || "ai"]);
       toast.success(`Gerado por ${ENGINE_OF[mode]?.name ?? "IA"}`);
@@ -256,6 +259,7 @@ export default function Index() {
               <Badge variant="outline" className="border-cyan-500/40 text-cyan-300 px-1.5 py-0">Gemini · raciocínio</Badge>
               <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 px-1.5 py-0">OpenAI · comunicação</Badge>
               <Badge variant="outline" className="border-fuchsia-500/40 text-fuchsia-300 px-1.5 py-0">Grok · evidência</Badge>
+              <Badge variant="outline" className="border-amber-500/40 text-amber-300 px-1.5 py-0">OpenRouter · auditoria</Badge>
             </div>
             <a href="/aprendizado"><Button size="sm" variant="ghost" className="gap-2"><Brain className="h-4 w-4" /> Base de aprendizado</Button></a>
             <Button size="sm" variant="outline" onClick={newCaseAction}>+ Novo caso</Button>
@@ -493,6 +497,10 @@ export default function Index() {
                   <Button variant="secondary" onClick={() => runAI("evidencia")} disabled={loading} className="gap-2">
                     <Microscope className="h-4 w-4" /> Evidência atual
                     <Badge variant="outline" className={`ml-1 ${ENGINE_OF.evidencia.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.evidencia.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("auditoria")} disabled={loading} className="gap-2">
+                    <AlertTriangle className="h-4 w-4" /> Auditoria crítica
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.auditoria.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.auditoria.name}</Badge>
                   </Button>
                 </div>
               </div>

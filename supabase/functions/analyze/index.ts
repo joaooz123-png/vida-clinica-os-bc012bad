@@ -1,11 +1,12 @@
 // Edge function: routes each clinical task to the AI engine that fits best.
-// Gemini  → raciocínio clínico profundo (executar, atualizar, proximos)
-// OpenAI  → comunicação clínica estruturada (soap, educacao)
-// Grok    → evidência atual com busca web em tempo real (evidencia)
+// Gemini     → raciocínio clínico profundo (executar, atualizar, proximos)
+// OpenAI     → comunicação clínica estruturada (soap, educacao)
+// Grok       → evidência atual com busca web em tempo real (evidencia)
+// OpenRouter → painel de segunda opinião / auditoria crítica (auditoria)
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-type Mode = "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia";
-type Engine = "gemini" | "openai" | "grok";
+type Mode = "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia" | "auditoria";
+type Engine = "gemini" | "openai" | "grok" | "openrouter";
 
 const BASE_RULES = `Você é o MedConsult OS — copiloto clínico de reumatologia para uso EXCLUSIVO por médico (Dr. João Otávio Rennó Grilo). Você NÃO substitui consulta, exame físico, protocolos locais nem julgamento clínico. Responda SEMPRE em português do Brasil, de forma estruturada, sóbria e objetiva.
 
@@ -91,12 +92,27 @@ Você é o módulo de **EVIDÊNCIA ATUAL EM TEMPO REAL**. Use busca web ao vivo 
 ## 7. Fontes (lista com URLs)
 
 Sempre cite a fonte ao lado de cada afirmação. Se não encontrar evidência robusta, diga explicitamente.`,
+
+  auditoria: `${BASE_RULES}
+
+Você é o **AUDITOR CLÍNICO INDEPENDENTE — segunda opinião**. Sua missão é revisar criticamente o caso e quaisquer saídas anteriores das outras IAs. Atue como revisor sênior cético: não concorde por inércia. Markdown com:
+
+## 1. Veredito geral (concordo / concordo com ressalvas / discordo)
+## 2. Hipóteses negligenciadas ou subvalorizadas
+## 3. Possíveis alucinações ou afirmações sem suporte
+## 4. Red flags ou contraindicações que podem ter passado
+## 5. Vieses cognitivos identificados (ancoragem, disponibilidade, fechamento prematuro)
+## 6. Riscos de segurança do paciente (medicação, exame, conduta)
+## 7. Recomendação final ao médico — o que mudar antes de executar
+
+Seja direto, técnico e implacável com erros. Sem bajulação.`,
 };
 
 function pickEngine(mode: Mode, override?: string): Engine {
-  if (override === "gemini" || override === "openai" || override === "grok") return override;
+  if (override === "gemini" || override === "openai" || override === "grok" || override === "openrouter") return override;
   if (mode === "soap" || mode === "educacao") return "openai";
   if (mode === "evidencia") return "grok";
+  if (mode === "auditoria") return "openrouter";
   return "gemini";
 }
 
@@ -124,6 +140,51 @@ ${JSON.stringify(postConsultation ?? {}, null, 2)}
 Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva "Não aplicável neste momento".`;
 
     const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" };
+
+    // ---------- OPENROUTER — segunda opinião / auditoria ----------
+    if (engine === "openrouter") {
+      const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+      if (!OPENROUTER_API_KEY) {
+        return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY ausente. Configure a chave do OpenRouter no backend." }),
+          { status: 500, headers: jsonHeaders });
+      }
+      const model = Deno.env.get("OPENROUTER_MODEL") || "anthropic/claude-sonnet-4.5";
+      const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "https://vida-clinica-copiloto.lovable.app",
+          "X-Title": "MedConsult OS",
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userContent },
+          ],
+        }),
+      });
+      if (aiRes.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições do OpenRouter excedido. Tente novamente em instantes." }),
+          { status: 429, headers: jsonHeaders });
+      }
+      if (aiRes.status === 402) {
+        return new Response(JSON.stringify({ error: "Créditos do OpenRouter insuficientes. Adicione em openrouter.ai/credits." }),
+          { status: 402, headers: jsonHeaders });
+      }
+      if (!aiRes.ok) {
+        const t = await aiRes.text();
+        console.error("OpenRouter error", aiRes.status, t);
+        return new Response(JSON.stringify({ error: "Falha ao consultar o OpenRouter.", detail: t }),
+          { status: 500, headers: jsonHeaders });
+      }
+      const data = await aiRes.json();
+      const analysis = data?.choices?.[0]?.message?.content ?? "";
+      return new Response(JSON.stringify({ analysis, provider: "openrouter", model, role: "audit" }),
+        { headers: jsonHeaders });
+    }
 
     // ---------- GROK (xAI) — Live Search ----------
     if (engine === "grok") {
