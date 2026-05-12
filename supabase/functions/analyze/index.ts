@@ -49,6 +49,53 @@ ${JSON.stringify(postConsultation ?? {}, null, 2)}
 
 Gere a análise no formato obrigatório. Se uma seção não se aplicar, escreva "Não aplicável neste momento".`;
 
+    if (provider === "openai") {
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (!OPENAI_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: "OPENAI_API_KEY ausente. Configure a chave da OpenAI no backend." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const model = Deno.env.get("OPENAI_MODEL") || "gpt-4o";
+      const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.3,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userContent },
+          ],
+        }),
+      });
+
+      if (aiRes.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Limite de requisições da OpenAI excedido. Tente novamente em instantes." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } },
+        );
+      }
+      if (!aiRes.ok) {
+        const t = await aiRes.text();
+        console.error("OpenAI API error", aiRes.status, t);
+        return new Response(
+          JSON.stringify({ error: "Falha ao consultar a OpenAI.", detail: t }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const data = await aiRes.json();
+      const analysis = data?.choices?.[0]?.message?.content ?? "";
+      return new Response(
+        JSON.stringify({ analysis, provider: "openai", model }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } },
+      );
+    }
+
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
       return new Response(
