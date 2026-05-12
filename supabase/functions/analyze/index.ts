@@ -7,7 +7,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 type Mode = "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia" | "auditoria";
-type Engine = "gemini" | "openai" | "grok" | "openrouter";
+type Engine = "gemini" | "openai" | "grok" | "openrouter" | "nvidia";
 
 const BASE_RULES = `Você é o MedConsult OS — copiloto clínico de reumatologia para uso EXCLUSIVO por médico (Dr. João Otávio Rennó Grilo). Você NÃO substitui consulta, exame físico, protocolos locais nem julgamento clínico. Responda SEMPRE em português do Brasil, de forma estruturada, sóbria e objetiva.
 
@@ -110,7 +110,7 @@ Seja direto, técnico e implacável com erros. Sem bajulação.`,
 };
 
 function pickEngine(mode: Mode, override?: string): Engine {
-  if (override === "gemini" || override === "openai" || override === "grok" || override === "openrouter") return override;
+  if (override === "gemini" || override === "openai" || override === "grok" || override === "openrouter" || override === "nvidia") return override;
   if (mode === "soap" || mode === "educacao") return "openai";
   if (mode === "evidencia") return "grok";
   if (mode === "auditoria") return "openrouter";
@@ -119,10 +119,11 @@ function pickEngine(mode: Mode, override?: string): Engine {
 
 // Fallback chain — when primary is rate-limited or down, try the next available engine.
 const FALLBACK: Record<Engine, Engine[]> = {
-  gemini:     ["openai", "openrouter", "grok"],
-  openai:     ["gemini", "openrouter", "grok"],
-  grok:       ["openrouter", "gemini", "openai"],
-  openrouter: ["gemini", "openai", "grok"],
+  gemini:     ["openai", "openrouter", "nvidia", "grok"],
+  openai:     ["gemini", "openrouter", "nvidia", "grok"],
+  grok:       ["openrouter", "nvidia", "gemini", "openai"],
+  openrouter: ["gemini", "openai", "nvidia", "grok"],
+  nvidia:     ["gemini", "openai", "openrouter", "grok"],
 };
 
 type CallResult =
@@ -223,11 +224,35 @@ async function callOpenRouter(system: string, user: string): Promise<CallResult>
   return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "openrouter", model };
 }
 
+async function callNvidia(system: string, user: string): Promise<CallResult> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  if (!key) return { ok: false, status: 500, error: "NVIDIA_API_KEY ausente." };
+  const model = Deno.env.get("NVIDIA_MODEL") || "nvidia/llama-3.1-nemotron-70b-instruct";
+  const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      temperature: 0.3,
+      max_tokens: 4096,
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    console.error("NVIDIA error", r.status, t);
+    return { ok: false, status: r.status, error: `NVIDIA ${r.status}`, detail: t };
+  }
+  const d = await r.json();
+  return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "nvidia-nim", model };
+}
+
 const CALL: Record<Engine, (s: string, u: string) => Promise<CallResult>> = {
   gemini: callGemini,
   openai: callOpenAI,
   grok: callGrok,
   openrouter: callOpenRouter,
+  nvidia: callNvidia,
 };
 
 const ROLE_OF: Record<Engine, string> = {
@@ -235,6 +260,7 @@ const ROLE_OF: Record<Engine, string> = {
   openai: "clinical-communication",
   grok: "live-evidence",
   openrouter: "audit",
+  nvidia: "open-model-reasoning",
 };
 
 Deno.serve(async (req) => {
