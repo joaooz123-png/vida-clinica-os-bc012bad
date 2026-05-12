@@ -19,6 +19,18 @@ export interface PreAttendance {
   cristal: string[];
   labs: string;
   imagens: string;
+  vitais: {
+    pa?: string;        // pressão arterial "120/80"
+    fc?: number;        // bpm
+    fr?: number;        // irpm
+    temperatura?: number; // °C
+    spo2?: number;      // %
+    peso?: number;      // kg
+    altura?: number;    // cm
+    obs?: string;       // observações livres
+  };
+  preenchidoPor?: "medico" | "paciente";
+  preenchidoEm?: string;
 }
 
 export interface Consultation {

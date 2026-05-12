@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/Markdown";
 import {
   Activity, AlertTriangle, Brain, ClipboardList, Download, FileText,
-  HeartPulse, Loader2, Lock, Microscope, Save, Sparkles, Stethoscope, Trash2
+  HeartPulse, Inbox, Link2, Loader2, Lock, Microscope, Printer, Save, Sparkles, Stethoscope, Trash2, User
 } from "lucide-react";
 import {
   CaseSession, loadCases, newCase, upsertCase, saveCases, Phase,
@@ -157,6 +157,29 @@ export default function Index() {
     toast.success("Aprendizado anônimo exportado");
   };
 
+  const importPatientCode = () => {
+    const raw = window.prompt("Cole o código MCO1-... enviado pelo paciente:");
+    if (!raw) return;
+    try {
+      const m = raw.trim().match(/MCO1-([A-Za-z0-9_-]+)/);
+      if (!m) throw new Error("Formato inválido");
+      const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (m[1].length % 4)) % 4);
+      const json = decodeURIComponent(escape(atob(b64)));
+      const parsed = JSON.parse(json);
+      updatePre({ ...parsed, preenchidoPor: "paciente" });
+      addTimeline("Resposta do paciente importada", parsed.queixaPrincipal || "questionário pré-consulta", "pre", ["paciente"]);
+      toast.success("Resposta do paciente importada para a triagem.");
+    } catch {
+      toast.error("Não consegui ler esse código. Confirme se ele começa com MCO1-.");
+    }
+  };
+
+  const copyPatientLink = async () => {
+    const url = `${window.location.origin}/questionario`;
+    await navigator.clipboard.writeText(url);
+    toast.success("Link do questionário copiado. Envie ao paciente.");
+  };
+
   const newCaseAction = () => {
     const n = newCase();
     const all = [n, ...cases];
@@ -268,7 +291,30 @@ export default function Index() {
                 <div className="flex items-center gap-2">
                   <ClipboardList className="h-4 w-4 text-primary" />
                   <h2 className="text-sm font-semibold">Pré-atendimento — triagem estruturada</h2>
+                  {active.preAttendance.preenchidoPor === "paciente" && (
+                    <Badge variant="outline" className="ml-auto border-primary/40 text-primary gap-1 text-[10px]">
+                      <User className="h-3 w-3" /> preenchido pelo paciente
+                    </Badge>
+                  )}
                 </div>
+
+                {/* Integração com paciente */}
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                    <Link2 className="h-3.5 w-3.5" /> Questionário do paciente
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Envie o link para o paciente preencher antes da consulta, ou imprima a versão em papel. Ao final ele recebe um código <code className="text-foreground/80">MCO1-…</code> para você importar aqui.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={copyPatientLink} className="gap-2"><Link2 className="h-3.5 w-3.5" /> Copiar link</Button>
+                    <a href="/questionario" target="_blank" rel="noreferrer">
+                      <Button size="sm" variant="outline" className="gap-2"><Printer className="h-3.5 w-3.5" /> Abrir / Imprimir</Button>
+                    </a>
+                    <Button size="sm" variant="secondary" onClick={importPatientCode} className="gap-2"><Inbox className="h-3.5 w-3.5" /> Importar resposta</Button>
+                  </div>
+                </div>
+
                 <Field label="Queixa principal">
                   <Input value={active.preAttendance.queixaPrincipal || ""} onChange={e => updatePre({ queixaPrincipal: e.target.value })} placeholder="Ex.: poliartralgia simétrica há 8 semanas" />
                 </Field>
@@ -312,6 +358,42 @@ export default function Index() {
                   <Field label="Cristais/gota">
                     <ChipGroup items={CRISTAL} value={active.preAttendance.cristal || []} onChange={v => updatePre({ cristal: v })} />
                   </Field>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    <HeartPulse className="h-3.5 w-3.5 text-primary" /> Sinais vitais
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Field label="PA">
+                      <Input placeholder="120/80" value={active.preAttendance.vitais?.pa || ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), pa: e.target.value } })} />
+                    </Field>
+                    <Field label="FC (bpm)">
+                      <Input type="number" value={active.preAttendance.vitais?.fc ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), fc: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="FR (irpm)">
+                      <Input type="number" value={active.preAttendance.vitais?.fr ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), fr: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="T (°C)">
+                      <Input type="number" step="0.1" value={active.preAttendance.vitais?.temperatura ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), temperatura: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="SpO₂ (%)">
+                      <Input type="number" value={active.preAttendance.vitais?.spo2 ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), spo2: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="Peso (kg)">
+                      <Input type="number" value={active.preAttendance.vitais?.peso ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), peso: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="Altura (cm)">
+                      <Input type="number" value={active.preAttendance.vitais?.altura ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), altura: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="IMC">
+                      <Input readOnly value={(() => {
+                        const p = active.preAttendance.vitais?.peso, a = active.preAttendance.vitais?.altura;
+                        if (!p || !a) return "";
+                        const imc = p / Math.pow(a / 100, 2);
+                        return isFinite(imc) ? imc.toFixed(1) : "";
+                      })()} placeholder="auto" />
+                    </Field>
+                  </div>
                 </div>
                 <Field label="Laboratório (texto livre)" hint="Ex.: VHS 42, PCR 18, FR negativo, anti-CCP +, FAN 1:320 nuclear pontilhado fino, C3 baixo...">
                   <Textarea rows={3} value={active.preAttendance.labs || ""} onChange={e => updatePre({ labs: e.target.value })} />
