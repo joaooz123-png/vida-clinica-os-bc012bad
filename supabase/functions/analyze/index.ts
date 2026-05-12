@@ -244,7 +244,7 @@ async function callOpenRouter(system: string, user: string): Promise<CallResult>
 async function callNvidia(system: string, user: string): Promise<CallResult> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   if (!key) return { ok: false, status: 500, error: "NVIDIA_API_KEY ausente." };
-  const model = Deno.env.get("NVIDIA_MODEL") || "nvidia/llama-3.1-nemotron-70b-instruct";
+  const model = Deno.env.get("NVIDIA_MODEL") || "meta/llama-3.3-70b-instruct";
   const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
