@@ -101,7 +101,7 @@ export default function Index() {
     auditoria: { name: "OpenRouter", cls: "border-amber-500/40 text-amber-300" },
   };
 
-  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia") => {
+  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia" | "auditoria") => {
     if (!active) return;
     setLoading(true);
     setAnalysis("");
