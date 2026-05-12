@@ -92,12 +92,13 @@ export default function Index() {
 
   // Routing engine map (UI hint only — backend decides definitively)
   const ENGINE_OF: Record<string, { name: string; cls: string }> = {
-    executar:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
-    atualizar: { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
-    proximos:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
-    soap:      { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
-    educacao:  { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
-    evidencia: { name: "Grok",   cls: "border-fuchsia-500/40 text-fuchsia-300" },
+    executar:  { name: "Gemini",     cls: "border-cyan-500/40 text-cyan-300" },
+    atualizar: { name: "Gemini",     cls: "border-cyan-500/40 text-cyan-300" },
+    proximos:  { name: "Gemini",     cls: "border-cyan-500/40 text-cyan-300" },
+    soap:      { name: "OpenAI",     cls: "border-emerald-500/40 text-emerald-300" },
+    educacao:  { name: "OpenAI",     cls: "border-emerald-500/40 text-emerald-300" },
+    evidencia: { name: "Grok",       cls: "border-fuchsia-500/40 text-fuchsia-300" },
+    auditoria: { name: "OpenRouter", cls: "border-amber-500/40 text-amber-300" },
   };
 
   const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia") => {
