@@ -141,6 +141,51 @@ Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva
 
     const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" };
 
+    // ---------- OPENROUTER — segunda opinião / auditoria ----------
+    if (engine === "openrouter") {
+      const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+      if (!OPENROUTER_API_KEY) {
+        return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY ausente. Configure a chave do OpenRouter no backend." }),
+          { status: 500, headers: jsonHeaders });
+      }
+      const model = Deno.env.get("OPENROUTER_MODEL") || "anthropic/claude-sonnet-4.5";
+      const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "https://vida-clinica-copiloto.lovable.app",
+          "X-Title": "MedConsult OS",
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userContent },
+          ],
+        }),
+      });
+      if (aiRes.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições do OpenRouter excedido. Tente novamente em instantes." }),
+          { status: 429, headers: jsonHeaders });
+      }
+      if (aiRes.status === 402) {
+        return new Response(JSON.stringify({ error: "Créditos do OpenRouter insuficientes. Adicione em openrouter.ai/credits." }),
+          { status: 402, headers: jsonHeaders });
+      }
+      if (!aiRes.ok) {
+        const t = await aiRes.text();
+        console.error("OpenRouter error", aiRes.status, t);
+        return new Response(JSON.stringify({ error: "Falha ao consultar o OpenRouter.", detail: t }),
+          { status: 500, headers: jsonHeaders });
+      }
+      const data = await aiRes.json();
+      const analysis = data?.choices?.[0]?.message?.content ?? "";
+      return new Response(JSON.stringify({ analysis, provider: "openrouter", model, role: "audit" }),
+        { headers: jsonHeaders });
+    }
+
     // ---------- GROK (xAI) — Live Search ----------
     if (engine === "grok") {
       const XAI_API_KEY = Deno.env.get("XAI_API_KEY");
