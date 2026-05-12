@@ -90,7 +90,17 @@ export default function Index() {
     update({ timeline: tl });
   };
 
-  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao") => {
+  // Routing engine map (UI hint only — backend decides definitively)
+  const ENGINE_OF: Record<string, { name: string; cls: string }> = {
+    executar:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
+    atualizar: { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
+    proximos:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
+    soap:      { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
+    educacao:  { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
+    evidencia: { name: "Grok",   cls: "border-fuchsia-500/40 text-fuchsia-300" },
+  };
+
+  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia") => {
     if (!active) return;
     setLoading(true);
     setAnalysis("");
@@ -103,7 +113,6 @@ export default function Index() {
         },
         body: JSON.stringify({
           mode,
-          provider: aiProvider,
           preAttendance: active.preAttendance,
           consultation: active.consultation,
           postConsultation: active.postConsultation,
@@ -123,15 +132,18 @@ export default function Index() {
       else if (mode === "soap") out.soap = text;
       else if (mode === "proximos") out.nextSteps = text;
       else if (mode === "educacao") out.patientEducation = text;
+      else if (mode === "evidencia") out.evidence = text;
       update({ outputs: out });
-      addTimeline(
-        mode === "executar" ? "Triagem pré-atendimento" :
-        mode === "atualizar" ? "Raciocínio atualizado em consulta" :
-        mode === "soap" ? "Nota SOAP gerada" :
-        mode === "proximos" ? "Próximos passos gerados" : "Orientação ao paciente",
-        text.split("\n").slice(0, 3).join(" "), phase
-      );
-      toast.success("Análise gerada");
+      const titleMap: Record<string, string> = {
+        executar: "Triagem pré-atendimento",
+        atualizar: "Raciocínio atualizado em consulta",
+        soap: "Nota SOAP gerada",
+        proximos: "Próximos passos gerados",
+        educacao: "Orientação ao paciente",
+        evidencia: "Evidência atual (busca ao vivo)",
+      };
+      addTimeline(titleMap[mode], text.split("\n").slice(0, 3).join(" "), phase, [ENGINE_OF[mode]?.name.toLowerCase() || "ai"]);
+      toast.success(`Gerado por ${ENGINE_OF[mode]?.name ?? "IA"}`);
     } catch (e: any) {
       toast.error(e.message || "Falha ao executar análise");
     } finally {
