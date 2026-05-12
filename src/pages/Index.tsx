@@ -105,6 +105,7 @@ export default function Index() {
         },
         body: JSON.stringify({
           mode,
+          provider: aiProvider,
           preAttendance: active.preAttendance,
           consultation: active.consultation,
           postConsultation: active.postConsultation,
