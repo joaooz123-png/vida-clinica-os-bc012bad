@@ -168,6 +168,22 @@ export default function Index() {
     if (activeId === id) setActiveId(all[0]?.localCaseId || "");
   };
 
+  // Sections filled? — gates the single Executar button.
+  const filled = useMemo(() => {
+    if (!active) return { pre: false, consulta: false, pos: false, any: false, list: [] as string[] };
+    const p = active.preAttendance;
+    const c = active.consultation;
+    const o = active.postConsultation;
+    const pre = !!(p.queixaPrincipal || p.narrativa || (p.padrao?.length) || (p.areas?.length) || (p.redFlags?.length) || p.labs || p.imagens);
+    const consulta = !!(c.anamnese || c.examFisico || c.hipoteses || c.plano || (c.jointCount?.tender ?? 0) > 0 || (c.jointCount?.swollen ?? 0) > 0);
+    const pos = !!(o.diagnosticoFinal || o.conduta || o.examesPedidos || o.feedbackIA || o.correcaoMedico);
+    const list: string[] = [];
+    if (pre) list.push("Pré-atendimento");
+    if (consulta) list.push("Consulta");
+    if (pos) list.push("Pós-consulta");
+    return { pre, consulta, pos, any: pre || consulta || pos, list };
+  }, [active]);
+
   // Stats for learning dashboard
   const stats = useMemo(() => {
     const total = cases.length;
@@ -303,11 +319,20 @@ export default function Index() {
                 <Field label="Imagem (texto livre)">
                   <Textarea rows={2} value={active.preAttendance.imagens || ""} onChange={e => updatePre({ imagens: e.target.value })} />
                 </Field>
-                <div className="flex items-center gap-2 pt-1">
-                  <Button onClick={() => runAI("executar")} disabled={loading} className="gap-2">
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Executar
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Button onClick={() => runAI("executar")} disabled={loading || !filled.any} className="gap-2">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Executar análise
                   </Button>
-                  <p className="text-[11px] text-muted-foreground">A análise é gerada por IA com prompt clínico interno (não exposto).</p>
+                  {filled.any ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] text-muted-foreground">Enviando:</span>
+                      {filled.list.map(s => (
+                        <Badge key={s} variant="outline" className="border-primary/40 text-primary text-[10px]">{s}</Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">Preencha ao menos um campo da triagem para habilitar.</p>
+                  )}
                 </div>
               </div>
             </TabsContent>
@@ -422,23 +447,45 @@ export default function Index() {
 
         {/* Right: outputs + timeline + cases */}
         <aside className="lg:col-span-5 space-y-5">
-          <div className="panel min-h-[300px]">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">Saída da IA — copiloto clínico</h2>
-              {loading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-auto" />}
-            </div>
-            {!analysis && !loading && (
-              <div className="text-sm text-muted-foreground">
-                Preencha a triagem e clique em <span className="text-primary font-medium">Executar</span> para gerar a análise estruturada (prioridade, red flags, fenótipo, diferencial, próximos passos, SOAP, orientação ao paciente).
+          {(() => {
+            const display =
+              analysis ||
+              active.outputs.patientEducation ||
+              active.outputs.nextSteps ||
+              active.outputs.soap ||
+              active.outputs.consultationAssessment ||
+              active.outputs.triage ||
+              "";
+            return (
+              <div className="panel min-h-[300px]">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-semibold">Saída da IA — copiloto clínico</h2>
+                  {display && !loading && <Badge variant="outline" className="ml-auto text-[10px] border-primary/40 text-primary">Markdown</Badge>}
+                  {loading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-auto" />}
+                </div>
+                {loading && (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-3 w-1/3 rounded bg-secondary/60" />
+                    <div className="h-3 w-2/3 rounded bg-secondary/60" />
+                    <div className="h-3 w-1/2 rounded bg-secondary/60" />
+                    <div className="h-3 w-3/4 rounded bg-secondary/60" />
+                    <p className="text-xs text-muted-foreground pt-2">Gerando análise estruturada…</p>
+                  </div>
+                )}
+                {!loading && !display && (
+                  <div className="text-sm text-muted-foreground">
+                    Preencha a triagem e clique em <span className="text-primary font-medium">Executar análise</span>. A resposta virá em Markdown estruturado: prioridade clínica, red flags, fenótipo, diferencial ranqueado, exames, próximos passos, SOAP e orientação ao paciente.
+                  </div>
+                )}
+                {!loading && display && (
+                  <ScrollArea className="h-[60vh] pr-3">
+                    <Markdown>{display}</Markdown>
+                  </ScrollArea>
+                )}
               </div>
-            )}
-            {(analysis || active.outputs.triage || active.outputs.consultationAssessment) && (
-              <ScrollArea className="h-[60vh] pr-3">
-                <Markdown>{analysis || active.outputs.consultationAssessment || active.outputs.triage || ""}</Markdown>
-              </ScrollArea>
-            )}
-          </div>
+            );
+          })()}
 
           <div className="panel">
             <div className="flex items-center gap-2 mb-3">
