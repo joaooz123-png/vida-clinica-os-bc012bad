@@ -157,7 +157,30 @@ export default function Index() {
     toast.success("Aprendizado anônimo exportado");
   };
 
-  const newCaseAction = () => {
+  const importPatientCode = () => {
+    const raw = window.prompt("Cole o código MCO1-... enviado pelo paciente:");
+    if (!raw) return;
+    try {
+      const m = raw.trim().match(/MCO1-([A-Za-z0-9_-]+)/);
+      if (!m) throw new Error("Formato inválido");
+      const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (m[1].length % 4)) % 4);
+      const json = decodeURIComponent(escape(atob(b64)));
+      const parsed = JSON.parse(json);
+      updatePre({ ...parsed, preenchidoPor: "paciente" });
+      addTimeline("Resposta do paciente importada", parsed.queixaPrincipal || "questionário pré-consulta", "pre", ["paciente"]);
+      toast.success("Resposta do paciente importada para a triagem.");
+    } catch {
+      toast.error("Não consegui ler esse código. Confirme se ele começa com MCO1-.");
+    }
+  };
+
+  const copyPatientLink = async () => {
+    const url = `${window.location.origin}/questionario`;
+    await navigator.clipboard.writeText(url);
+    toast.success("Link do questionário copiado. Envie ao paciente.");
+  };
+
+
     const n = newCase();
     const all = [n, ...cases];
     setCases(all); saveCases(all); setActiveId(n.localCaseId); setPhase("pre"); setAnalysis("");
