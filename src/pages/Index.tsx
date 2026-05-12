@@ -95,16 +95,25 @@ export default function Index() {
     setLoading(true);
     setAnalysis("");
     try {
-      const { data, error } = await supabase.functions.invoke("analyze", {
-        body: {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
           mode,
           preAttendance: active.preAttendance,
           consultation: active.consultation,
           postConsultation: active.postConsultation,
-        },
+        }),
       });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 402) throw new Error("Créditos de IA insuficientes. Adicione créditos em Configurações → Workspace → Uso.");
+        if (res.status === 429) throw new Error("Limite de requisições excedido. Aguarde alguns instantes e tente novamente.");
+        throw new Error((data as any)?.error || `Falha na análise (HTTP ${res.status}).`);
+      }
       const text = (data as any)?.analysis ?? "";
       setAnalysis(text);
       const out: any = { ...active.outputs };
