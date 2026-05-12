@@ -619,6 +619,8 @@ export default function Index() {
           {(() => {
             const display =
               analysis ||
+              active.outputs.audit ||
+              active.outputs.evidence ||
               active.outputs.patientEducation ||
               active.outputs.nextSteps ||
               active.outputs.soap ||
