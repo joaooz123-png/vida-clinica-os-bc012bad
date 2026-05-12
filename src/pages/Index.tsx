@@ -199,6 +199,7 @@ export default function Index() {
           <div className="ml-auto flex items-center gap-2">
             <Badge variant="outline" className="border-success/40 text-success gap-1"><Lock className="h-3 w-3" /> Modo sem identificação</Badge>
             <Badge variant="outline" className="border-primary/40 text-primary">Dr. João Otávio Rennó Grilo</Badge>
+            <a href="/aprendizado"><Button size="sm" variant="ghost" className="gap-2"><Brain className="h-4 w-4" /> Base de aprendizado</Button></a>
             <Button size="sm" variant="outline" onClick={newCaseAction}>+ Novo caso</Button>
           </div>
         </div>
