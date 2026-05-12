@@ -56,8 +56,6 @@ export default function Index() {
   const [phase, setPhase] = useState<Phase>("pre");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState("");
-  const [aiProvider, setAiProvider] = useState<"gemini" | "openai">(() => (localStorage.getItem("ai_provider") as any) || "gemini");
-  useEffect(() => { localStorage.setItem("ai_provider", aiProvider); }, [aiProvider]);
 
   // initialize
   useEffect(() => {
