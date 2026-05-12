@@ -473,10 +473,26 @@ export default function Index() {
                   <Textarea rows={2} value={active.consultation.plano || ""} onChange={e => updateCons({ plano: e.target.value })} />
                 </Field>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Button onClick={() => runAI("atualizar")} disabled={loading} className="gap-2"><Sparkles className="h-4 w-4" /> Atualizar raciocínio</Button>
-                  <Button variant="secondary" onClick={() => runAI("soap")} disabled={loading} className="gap-2"><FileText className="h-4 w-4" /> Gerar SOAP</Button>
-                  <Button variant="secondary" onClick={() => runAI("proximos")} disabled={loading} className="gap-2"><ClipboardList className="h-4 w-4" /> Próximos passos</Button>
-                  <Button variant="secondary" onClick={() => runAI("educacao")} disabled={loading} className="gap-2"><HeartPulse className="h-4 w-4" /> Orientação ao paciente</Button>
+                  <Button onClick={() => runAI("atualizar")} disabled={loading} className="gap-2">
+                    <Sparkles className="h-4 w-4" /> Atualizar raciocínio
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.atualizar.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.atualizar.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("soap")} disabled={loading} className="gap-2">
+                    <FileText className="h-4 w-4" /> Gerar SOAP
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.soap.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.soap.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("proximos")} disabled={loading} className="gap-2">
+                    <ClipboardList className="h-4 w-4" /> Próximos passos
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.proximos.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.proximos.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("educacao")} disabled={loading} className="gap-2">
+                    <HeartPulse className="h-4 w-4" /> Orientação ao paciente
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.educacao.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.educacao.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("evidencia")} disabled={loading} className="gap-2">
+                    <Microscope className="h-4 w-4" /> Evidência atual
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.evidencia.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.evidencia.name}</Badge>
+                  </Button>
                 </div>
               </div>
             </TabsContent>
