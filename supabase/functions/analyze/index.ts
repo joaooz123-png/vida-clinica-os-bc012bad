@@ -143,14 +143,6 @@ Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: userContent },
           ],
-          search_parameters: {
-            mode: "on",
-            return_citations: true,
-            sources: [
-              { type: "web" },
-              { type: "news" },
-            ],
-          },
         }),
       });
       if (aiRes.status === 429) {
