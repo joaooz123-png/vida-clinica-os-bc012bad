@@ -1,11 +1,12 @@
 // Edge function: routes each clinical task to the AI engine that fits best.
-// Gemini  → raciocínio clínico profundo (executar, atualizar, proximos)
-// OpenAI  → comunicação clínica estruturada (soap, educacao)
-// Grok    → evidência atual com busca web em tempo real (evidencia)
+// Gemini     → raciocínio clínico profundo (executar, atualizar, proximos)
+// OpenAI     → comunicação clínica estruturada (soap, educacao)
+// Grok       → evidência atual com busca web em tempo real (evidencia)
+// OpenRouter → painel de segunda opinião / auditoria crítica (auditoria)
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-type Mode = "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia";
-type Engine = "gemini" | "openai" | "grok";
+type Mode = "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia" | "auditoria";
+type Engine = "gemini" | "openai" | "grok" | "openrouter";
 
 const BASE_RULES = `Você é o MedConsult OS — copiloto clínico de reumatologia para uso EXCLUSIVO por médico (Dr. João Otávio Rennó Grilo). Você NÃO substitui consulta, exame físico, protocolos locais nem julgamento clínico. Responda SEMPRE em português do Brasil, de forma estruturada, sóbria e objetiva.
 
