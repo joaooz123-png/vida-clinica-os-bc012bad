@@ -359,6 +359,42 @@ export default function Index() {
                     <ChipGroup items={CRISTAL} value={active.preAttendance.cristal || []} onChange={v => updatePre({ cristal: v })} />
                   </Field>
                 </div>
+                <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    <HeartPulse className="h-3.5 w-3.5 text-primary" /> Sinais vitais
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Field label="PA">
+                      <Input placeholder="120/80" value={active.preAttendance.vitais?.pa || ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), pa: e.target.value } })} />
+                    </Field>
+                    <Field label="FC (bpm)">
+                      <Input type="number" value={active.preAttendance.vitais?.fc ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), fc: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="FR (irpm)">
+                      <Input type="number" value={active.preAttendance.vitais?.fr ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), fr: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="T (°C)">
+                      <Input type="number" step="0.1" value={active.preAttendance.vitais?.temperatura ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), temperatura: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="SpO₂ (%)">
+                      <Input type="number" value={active.preAttendance.vitais?.spo2 ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), spo2: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="Peso (kg)">
+                      <Input type="number" value={active.preAttendance.vitais?.peso ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), peso: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="Altura (cm)">
+                      <Input type="number" value={active.preAttendance.vitais?.altura ?? ""} onChange={e => updatePre({ vitais: { ...(active.preAttendance.vitais || {}), altura: e.target.value ? Number(e.target.value) : undefined } })} />
+                    </Field>
+                    <Field label="IMC">
+                      <Input readOnly value={(() => {
+                        const p = active.preAttendance.vitais?.peso, a = active.preAttendance.vitais?.altura;
+                        if (!p || !a) return "";
+                        const imc = p / Math.pow(a / 100, 2);
+                        return isFinite(imc) ? imc.toFixed(1) : "";
+                      })()} placeholder="auto" />
+                    </Field>
+                  </div>
+                </div>
                 <Field label="Laboratório (texto livre)" hint="Ex.: VHS 42, PCR 18, FR negativo, anti-CCP +, FAN 1:320 nuclear pontilhado fino, C3 baixo...">
                   <Textarea rows={3} value={active.preAttendance.labs || ""} onChange={e => updatePre({ labs: e.target.value })} />
                 </Field>
