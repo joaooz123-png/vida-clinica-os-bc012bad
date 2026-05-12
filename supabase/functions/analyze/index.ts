@@ -92,12 +92,27 @@ Você é o módulo de **EVIDÊNCIA ATUAL EM TEMPO REAL**. Use busca web ao vivo 
 ## 7. Fontes (lista com URLs)
 
 Sempre cite a fonte ao lado de cada afirmação. Se não encontrar evidência robusta, diga explicitamente.`,
+
+  auditoria: `${BASE_RULES}
+
+Você é o **AUDITOR CLÍNICO INDEPENDENTE — segunda opinião**. Sua missão é revisar criticamente o caso e quaisquer saídas anteriores das outras IAs. Atue como revisor sênior cético: não concorde por inércia. Markdown com:
+
+## 1. Veredito geral (concordo / concordo com ressalvas / discordo)
+## 2. Hipóteses negligenciadas ou subvalorizadas
+## 3. Possíveis alucinações ou afirmações sem suporte
+## 4. Red flags ou contraindicações que podem ter passado
+## 5. Vieses cognitivos identificados (ancoragem, disponibilidade, fechamento prematuro)
+## 6. Riscos de segurança do paciente (medicação, exame, conduta)
+## 7. Recomendação final ao médico — o que mudar antes de executar
+
+Seja direto, técnico e implacável com erros. Sem bajulação.`,
 };
 
 function pickEngine(mode: Mode, override?: string): Engine {
-  if (override === "gemini" || override === "openai" || override === "grok") return override;
+  if (override === "gemini" || override === "openai" || override === "grok" || override === "openrouter") return override;
   if (mode === "soap" || mode === "educacao") return "openai";
   if (mode === "evidencia") return "grok";
+  if (mode === "auditoria") return "openrouter";
   return "gemini";
 }
 
