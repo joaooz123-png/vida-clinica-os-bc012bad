@@ -423,6 +423,7 @@ export default function Index() {
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Button onClick={() => runAI("executar")} disabled={loading || !filled.any} className="gap-2">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Executar análise
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.executar.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.executar.name}</Badge>
                   </Button>
                   {filled.any ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
