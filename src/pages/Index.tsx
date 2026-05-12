@@ -542,8 +542,51 @@ export default function Index() {
                     onValueChange={v => update({ learningFeedback: { ...active.learningFeedback, usefulnessScore: v[0] } })} />
                 </Field>
 
+                {/* Feedback por IA aplicada — granular por motor */}
+                <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Brain className="h-3.5 w-3.5 text-primary" />
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Feedback por IA aplicada</h3>
+                    <span className="text-[10px] text-muted-foreground/70 ml-auto">salvo localmente, anônimo</span>
+                  </div>
+                  {([
+                    { key: "gemini",     label: "Gemini · raciocínio (triagem/próximos)", cls: "border-cyan-500/40 text-cyan-300",       hint: "diferencial faltou? red flag perdida? exame desnecessário?" },
+                    { key: "openai",     label: "OpenAI · comunicação (SOAP/paciente)",   cls: "border-emerald-500/40 text-emerald-300", hint: "linguagem adequada? omitiu algo do plano?" },
+                    { key: "grok",       label: "Grok · evidência atual",                  cls: "border-fuchsia-500/40 text-fuchsia-300", hint: "fontes confiáveis? guideline desatualizada? citação inventada?" },
+                    { key: "openrouter", label: "OpenRouter · auditoria crítica",          cls: "border-amber-500/40 text-amber-300",     hint: "achou viés real? exagerou? subestimou risco?" },
+                  ] as const).map(eng => {
+                    const ef = active.learningFeedback.engineFeedback?.[eng.key] || {};
+                    const setEf = (patch: { score?: number; correction?: string }) => {
+                      update({
+                        learningFeedback: {
+                          ...active.learningFeedback,
+                          engineFeedback: {
+                            ...active.learningFeedback.engineFeedback,
+                            [eng.key]: { ...ef, ...patch },
+                          },
+                        },
+                      });
+                    };
+                    return (
+                      <div key={eng.key} className="space-y-2 border-l-2 border-border/60 pl-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`${eng.cls} text-[10px] px-1.5 py-0`}>{eng.label}</Badge>
+                          <span className="text-[10px] text-muted-foreground ml-auto">Acerto: {ef.score ?? 0}/10</span>
+                        </div>
+                        <Slider value={[ef.score ?? 0]} max={10} step={1} onValueChange={v => setEf({ score: v[0] })} />
+                        <Textarea
+                          rows={2}
+                          placeholder={eng.hint}
+                          value={ef.correction || ""}
+                          onChange={e => setEf({ correction: e.target.value })}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Button onClick={() => { update({ learningFeedback: { ...active.learningFeedback, physicianCorrections: active.postConsultation.correcaoMedico, finalSyndrome: active.postConsultation.diagnosticoFinal, outcomeAtFollowUp: active.postConsultation.desfechoRetorno } }); addTimeline("Evolução salva", "Aprendizado anônimo registrado", "pos"); toast.success("Evolução anônima salva localmente"); }} className="gap-2"><Save className="h-4 w-4" /> Salvar evolução anônima</Button>
+                  <Button onClick={() => { update({ learningFeedback: { ...active.learningFeedback, physicianCorrections: active.postConsultation.correcaoMedico, finalSyndrome: active.postConsultation.diagnosticoFinal, outcomeAtFollowUp: active.postConsultation.desfechoRetorno } }); addTimeline("Evolução salva", "Aprendizado anônimo registrado (inclui feedback por motor)", "pos"); toast.success("Evolução anônima salva localmente"); }} className="gap-2"><Save className="h-4 w-4" /> Salvar evolução anônima</Button>
                   <Button variant="secondary" onClick={exportLearning} className="gap-2"><Download className="h-4 w-4" /> Exportar aprendizado anônimo</Button>
                 </div>
 
@@ -576,6 +619,8 @@ export default function Index() {
           {(() => {
             const display =
               analysis ||
+              active.outputs.audit ||
+              active.outputs.evidence ||
               active.outputs.patientEducation ||
               active.outputs.nextSteps ||
               active.outputs.soap ||
