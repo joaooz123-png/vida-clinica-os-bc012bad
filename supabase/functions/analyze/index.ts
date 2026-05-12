@@ -111,10 +111,8 @@ Seja direto, técnico e implacável com erros. Sem bajulação.`,
 
 function pickEngine(mode: Mode, override?: string): Engine {
   if (override === "gemini" || override === "openai" || override === "grok" || override === "openrouter" || override === "nvidia") return override;
-  if (mode === "soap" || mode === "educacao") return "openai";
-  if (mode === "evidencia") return "grok";
-  if (mode === "auditoria") return "openrouter";
-  return "gemini";
+  // Modo emergência: NVIDIA como motor principal enquanto os demais estão sem créditos.
+  return "nvidia";
 }
 
 // Fallback chain — when primary is rate-limited or down, try the next available engine.
