@@ -134,6 +134,7 @@ export default function Index() {
       else if (mode === "proximos") out.nextSteps = text;
       else if (mode === "educacao") out.patientEducation = text;
       else if (mode === "evidencia") out.evidence = text;
+      else if (mode === "auditoria") out.audit = text;
       update({ outputs: out });
       const titleMap: Record<string, string> = {
         executar: "Triagem pré-atendimento",
@@ -142,6 +143,7 @@ export default function Index() {
         proximos: "Próximos passos gerados",
         educacao: "Orientação ao paciente",
         evidencia: "Evidência atual (busca ao vivo)",
+        auditoria: "Auditoria crítica (segunda opinião)",
       };
       addTimeline(titleMap[mode], text.split("\n").slice(0, 3).join(" "), phase, [ENGINE_OF[mode]?.name.toLowerCase() || "ai"]);
       toast.success(`Gerado por ${ENGINE_OF[mode]?.name ?? "IA"}`);
