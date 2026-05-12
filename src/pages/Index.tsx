@@ -259,6 +259,7 @@ export default function Index() {
               <Badge variant="outline" className="border-cyan-500/40 text-cyan-300 px-1.5 py-0">Gemini · raciocínio</Badge>
               <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 px-1.5 py-0">OpenAI · comunicação</Badge>
               <Badge variant="outline" className="border-fuchsia-500/40 text-fuchsia-300 px-1.5 py-0">Grok · evidência</Badge>
+              <Badge variant="outline" className="border-amber-500/40 text-amber-300 px-1.5 py-0">OpenRouter · auditoria</Badge>
             </div>
             <a href="/aprendizado"><Button size="sm" variant="ghost" className="gap-2"><Brain className="h-4 w-4" /> Base de aprendizado</Button></a>
             <Button size="sm" variant="outline" onClick={newCaseAction}>+ Novo caso</Button>
