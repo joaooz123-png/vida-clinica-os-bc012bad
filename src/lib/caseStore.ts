@@ -83,6 +83,13 @@ export interface CaseSession {
     aiErrors?: string;
     unnecessarySuggestions?: string;
     missedFindings?: string;
+    engineFeedback?: {
+      // por motor: nota 0–10 + correção/observação textual
+      gemini?:     { score?: number; correction?: string };  // raciocínio (triagem/atualizar/próximos)
+      openai?:     { score?: number; correction?: string };  // comunicação (SOAP/educação)
+      grok?:       { score?: number; correction?: string };  // evidência atual
+      openrouter?: { score?: number; correction?: string };  // auditoria crítica
+    };
   };
   timeline: { date: string; phase: Phase; title: string; summary: string; tags: string[] }[];
 }
