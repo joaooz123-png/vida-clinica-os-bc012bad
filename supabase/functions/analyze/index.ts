@@ -343,8 +343,9 @@ Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva
       attempts.push({ engine, status: res.status, error: res.error });
       const isQuota   = res.status === 429 || res.status === 402;
       const isMissing = res.status === 500 && /ausente/i.test(res.error);
-      const transient = isQuota || isMissing || res.status >= 500 || res.status === 503;
-      if (isQuota || isMissing) markUnhealthy(engine, isMissing ? 500 : res.status);
+      const isModel404 = res.status === 404; // modelo inválido/indisponível
+      const transient = isQuota || isMissing || isModel404 || res.status >= 500 || res.status === 503;
+      if (isQuota || isMissing || isModel404) markUnhealthy(engine, (isMissing || isModel404) ? 500 : res.status);
       if (!transient) {
         return new Response(
           JSON.stringify({ error: `Falha em ${engine}: ${res.error}`, detail: res.detail, attempts }),
