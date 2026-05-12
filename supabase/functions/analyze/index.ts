@@ -1,4 +1,5 @@
-// Edge function: routes each clinical task to the AI engine that fits best.
+// Edge function: routes each clinical task to the AI engine that fits best,
+// with automatic fallback chain when a provider is rate-limited (429) or down.
 // Gemini     → raciocínio clínico profundo (executar, atualizar, proximos)
 // OpenAI     → comunicação clínica estruturada (soap, educacao)
 // Grok       → evidência atual com busca web em tempo real (evidencia)
@@ -116,14 +117,136 @@ function pickEngine(mode: Mode, override?: string): Engine {
   return "gemini";
 }
 
+// Fallback chain — when primary is rate-limited or down, try the next available engine.
+const FALLBACK: Record<Engine, Engine[]> = {
+  gemini:     ["openai", "openrouter", "grok"],
+  openai:     ["gemini", "openrouter", "grok"],
+  grok:       ["openrouter", "gemini", "openai"],
+  openrouter: ["gemini", "openai", "grok"],
+};
+
+type CallResult =
+  | { ok: true; analysis: string; provider: string; model: string; citations?: any[] }
+  | { ok: false; status: number; error: string; detail?: string };
+
+async function callGemini(system: string, user: string): Promise<CallResult> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) return { ok: false, status: 500, error: "GEMINI_API_KEY ausente." };
+  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-pro";
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { role: "system", parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+    }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    console.error("Gemini error", r.status, t);
+    return { ok: false, status: r.status, error: `Gemini ${r.status}`, detail: t };
+  }
+  const d = await r.json();
+  const analysis = d?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join("") ?? "";
+  return { ok: true, analysis, provider: "google-gemini", model };
+}
+
+async function callOpenAI(system: string, user: string): Promise<CallResult> {
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) return { ok: false, status: 500, error: "OPENAI_API_KEY ausente." };
+  const model = Deno.env.get("OPENAI_MODEL") || "gpt-4o";
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      temperature: 0.3,
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    console.error("OpenAI error", r.status, t);
+    return { ok: false, status: r.status, error: `OpenAI ${r.status}`, detail: t };
+  }
+  const d = await r.json();
+  return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "openai", model };
+}
+
+async function callGrok(system: string, user: string): Promise<CallResult> {
+  const key = Deno.env.get("XAI_API_KEY");
+  if (!key) return { ok: false, status: 500, error: "XAI_API_KEY ausente." };
+  const model = Deno.env.get("XAI_MODEL") || "grok-4-latest";
+  const r = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    console.error("Grok error", r.status, t);
+    return { ok: false, status: r.status, error: `Grok ${r.status}`, detail: t };
+  }
+  const d = await r.json();
+  return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "xai-grok", model, citations: d?.citations ?? [] };
+}
+
+async function callOpenRouter(system: string, user: string): Promise<CallResult> {
+  const key = Deno.env.get("OPENROUTER_API_KEY");
+  if (!key) return { ok: false, status: 500, error: "OPENROUTER_API_KEY ausente." };
+  const model = Deno.env.get("OPENROUTER_MODEL") || "anthropic/claude-sonnet-4.5";
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "HTTP-Referer": "https://vida-clinica-copiloto.lovable.app",
+      "X-Title": "MedConsult OS",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    console.error("OpenRouter error", r.status, t);
+    return { ok: false, status: r.status, error: `OpenRouter ${r.status}`, detail: t };
+  }
+  const d = await r.json();
+  return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "openrouter", model };
+}
+
+const CALL: Record<Engine, (s: string, u: string) => Promise<CallResult>> = {
+  gemini: callGemini,
+  openai: callOpenAI,
+  grok: callGrok,
+  openrouter: callOpenRouter,
+};
+
+const ROLE_OF: Record<Engine, string> = {
+  gemini: "clinical-reasoning",
+  openai: "clinical-communication",
+  grok: "live-evidence",
+  openrouter: "audit",
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" };
 
   try {
     const payload = await req.json();
     const { preAttendance, consultation, postConsultation, mode: rawMode, provider } = payload ?? {};
     const mode: Mode = (PROMPTS as any)[rawMode] ? rawMode : "executar";
-    const engine = pickEngine(mode, provider);
+    const primary = pickEngine(mode, provider);
     const SYSTEM_PROMPT = PROMPTS[mode];
 
     const userContent = `Modo: ${mode}
@@ -139,161 +262,52 @@ ${JSON.stringify(postConsultation ?? {}, null, 2)}
 
 Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva "Não aplicável neste momento".`;
 
-    const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" };
+    // Try primary, then fallback chain on 429 / 5xx / missing-key (500).
+    const chain: Engine[] = [primary, ...FALLBACK[primary]];
+    const attempts: { engine: Engine; status: number; error: string }[] = [];
 
-    // ---------- OPENROUTER — segunda opinião / auditoria ----------
-    if (engine === "openrouter") {
-      const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-      if (!OPENROUTER_API_KEY) {
-        return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY ausente. Configure a chave do OpenRouter no backend." }),
-          { status: 500, headers: jsonHeaders });
+    for (const engine of chain) {
+      const res = await CALL[engine](SYSTEM_PROMPT, userContent);
+      if (res.ok) {
+        const fellBack = engine !== primary;
+        return new Response(
+          JSON.stringify({
+            analysis: res.analysis,
+            provider: res.provider,
+            model: res.model,
+            role: ROLE_OF[engine],
+            citations: res.citations,
+            engineUsed: engine,
+            primaryEngine: primary,
+            fellBack,
+            fallbackNote: fellBack ? `Motor primário (${primary}) indisponível — resposta gerada por ${engine}.` : undefined,
+            attempts: fellBack ? attempts : undefined,
+          }),
+          { headers: jsonHeaders }
+        );
       }
-      const model = Deno.env.get("OPENROUTER_MODEL") || "anthropic/claude-sonnet-4.5";
-      const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "https://vida-clinica-copiloto.lovable.app",
-          "X-Title": "MedConsult OS",
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userContent },
-          ],
-        }),
-      });
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições do OpenRouter excedido. Tente novamente em instantes." }),
-          { status: 429, headers: jsonHeaders });
+      attempts.push({ engine, status: res.status, error: res.error });
+      // Only fall back on transient/quota errors; on real 4xx (e.g. 400 bad request) stop.
+      const transient = res.status === 429 || res.status === 402 || res.status >= 500 || res.status === 503;
+      if (!transient) {
+        return new Response(
+          JSON.stringify({ error: `Falha em ${engine}: ${res.error}`, detail: res.detail, attempts }),
+          { status: res.status, headers: jsonHeaders }
+        );
       }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos do OpenRouter insuficientes. Adicione em openrouter.ai/credits." }),
-          { status: 402, headers: jsonHeaders });
-      }
-      if (!aiRes.ok) {
-        const t = await aiRes.text();
-        console.error("OpenRouter error", aiRes.status, t);
-        return new Response(JSON.stringify({ error: "Falha ao consultar o OpenRouter.", detail: t }),
-          { status: 500, headers: jsonHeaders });
-      }
-      const data = await aiRes.json();
-      const analysis = data?.choices?.[0]?.message?.content ?? "";
-      return new Response(JSON.stringify({ analysis, provider: "openrouter", model, role: "audit" }),
-        { headers: jsonHeaders });
     }
 
-    // ---------- GROK (xAI) — Live Search ----------
-    if (engine === "grok") {
-      const XAI_API_KEY = Deno.env.get("XAI_API_KEY");
-      if (!XAI_API_KEY) {
-        return new Response(JSON.stringify({ error: "XAI_API_KEY ausente. Configure a chave do Grok no backend." }),
-          { status: 500, headers: jsonHeaders });
-      }
-      const model = Deno.env.get("XAI_MODEL") || "grok-4-latest";
-      const aiRes = await fetch("https://api.x.ai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${XAI_API_KEY}` },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userContent },
-          ],
-        }),
-      });
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições do Grok excedido. Tente novamente em instantes." }),
-          { status: 429, headers: jsonHeaders });
-      }
-      if (!aiRes.ok) {
-        const t = await aiRes.text();
-        console.error("xAI error", aiRes.status, t);
-        return new Response(JSON.stringify({ error: "Falha ao consultar o Grok.", detail: t }),
-          { status: 500, headers: jsonHeaders });
-      }
-      const data = await aiRes.json();
-      const analysis = data?.choices?.[0]?.message?.content ?? "";
-      const citations = data?.citations ?? [];
-      return new Response(JSON.stringify({ analysis, provider: "xai-grok", model, citations, role: "evidence" }),
-        { headers: jsonHeaders });
-    }
-
-    // ---------- OPENAI — comunicação clínica ----------
-    if (engine === "openai") {
-      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-      if (!OPENAI_API_KEY) {
-        return new Response(JSON.stringify({ error: "OPENAI_API_KEY ausente. Configure a chave da OpenAI no backend." }),
-          { status: 500, headers: jsonHeaders });
-      }
-      const model = Deno.env.get("OPENAI_MODEL") || "gpt-4o";
-      const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-        body: JSON.stringify({
-          model,
-          temperature: 0.3,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userContent },
-          ],
-        }),
-      });
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições da OpenAI excedido. Tente novamente em instantes." }),
-          { status: 429, headers: jsonHeaders });
-      }
-      if (!aiRes.ok) {
-        const t = await aiRes.text();
-        console.error("OpenAI error", aiRes.status, t);
-        return new Response(JSON.stringify({ error: "Falha ao consultar a OpenAI.", detail: t }),
-          { status: 500, headers: jsonHeaders });
-      }
-      const data = await aiRes.json();
-      const analysis = data?.choices?.[0]?.message?.content ?? "";
-      const role = mode === "soap" ? "clinical-note" : "patient-communication";
-      return new Response(JSON.stringify({ analysis, provider: "openai", model, role }),
-        { headers: jsonHeaders });
-    }
-
-    // ---------- GEMINI — raciocínio clínico ----------
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "GEMINI_API_KEY ausente. Configure a chave do Google Gemini no backend." }),
-        { status: 500, headers: jsonHeaders });
-    }
-    const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-pro";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-    const aiRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { role: "system", parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: "user", parts: [{ text: userContent }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+    // All providers exhausted.
+    return new Response(
+      JSON.stringify({
+        error: "Todos os motores de IA estão temporariamente indisponíveis (limite ou créditos). Aguarde alguns minutos.",
+        attempts,
       }),
-    });
-    if (aiRes.status === 429) {
-      return new Response(JSON.stringify({ error: "Limite de requisições do Gemini excedido. Tente novamente em instantes." }),
-        { status: 429, headers: jsonHeaders });
-    }
-    if (!aiRes.ok) {
-      const t = await aiRes.text();
-      console.error("Gemini error", aiRes.status, t);
-      return new Response(JSON.stringify({ error: "Falha ao consultar o Gemini.", detail: t }),
-        { status: 500, headers: jsonHeaders });
-    }
-    const data = await aiRes.json();
-    const analysis = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join("") ?? "";
-    return new Response(JSON.stringify({ analysis, provider: "google-gemini", model, role: "clinical-reasoning" }),
-      { headers: jsonHeaders });
+      { status: 503, headers: jsonHeaders }
+    );
   } catch (e) {
     console.error("analyze error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      { status: 500, headers: jsonHeaders });
   }
 });
