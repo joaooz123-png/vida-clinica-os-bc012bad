@@ -63,6 +63,7 @@ export interface Outputs {
   soap?: string;
   nextSteps?: string;
   patientEducation?: string;
+  evidence?: string;
 }
 
 export interface CaseSession {

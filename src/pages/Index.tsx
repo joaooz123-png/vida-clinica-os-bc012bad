@@ -56,8 +56,6 @@ export default function Index() {
   const [phase, setPhase] = useState<Phase>("pre");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState("");
-  const [aiProvider, setAiProvider] = useState<"gemini" | "openai">(() => (localStorage.getItem("ai_provider") as any) || "gemini");
-  useEffect(() => { localStorage.setItem("ai_provider", aiProvider); }, [aiProvider]);
 
   // initialize
   useEffect(() => {
@@ -92,7 +90,17 @@ export default function Index() {
     update({ timeline: tl });
   };
 
-  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao") => {
+  // Routing engine map (UI hint only — backend decides definitively)
+  const ENGINE_OF: Record<string, { name: string; cls: string }> = {
+    executar:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
+    atualizar: { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
+    proximos:  { name: "Gemini", cls: "border-cyan-500/40 text-cyan-300" },
+    soap:      { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
+    educacao:  { name: "OpenAI", cls: "border-emerald-500/40 text-emerald-300" },
+    evidencia: { name: "Grok",   cls: "border-fuchsia-500/40 text-fuchsia-300" },
+  };
+
+  const runAI = async (mode: "executar" | "atualizar" | "soap" | "proximos" | "educacao" | "evidencia") => {
     if (!active) return;
     setLoading(true);
     setAnalysis("");
@@ -105,7 +113,6 @@ export default function Index() {
         },
         body: JSON.stringify({
           mode,
-          provider: aiProvider,
           preAttendance: active.preAttendance,
           consultation: active.consultation,
           postConsultation: active.postConsultation,
@@ -125,15 +132,18 @@ export default function Index() {
       else if (mode === "soap") out.soap = text;
       else if (mode === "proximos") out.nextSteps = text;
       else if (mode === "educacao") out.patientEducation = text;
+      else if (mode === "evidencia") out.evidence = text;
       update({ outputs: out });
-      addTimeline(
-        mode === "executar" ? "Triagem pré-atendimento" :
-        mode === "atualizar" ? "Raciocínio atualizado em consulta" :
-        mode === "soap" ? "Nota SOAP gerada" :
-        mode === "proximos" ? "Próximos passos gerados" : "Orientação ao paciente",
-        text.split("\n").slice(0, 3).join(" "), phase
-      );
-      toast.success("Análise gerada");
+      const titleMap: Record<string, string> = {
+        executar: "Triagem pré-atendimento",
+        atualizar: "Raciocínio atualizado em consulta",
+        soap: "Nota SOAP gerada",
+        proximos: "Próximos passos gerados",
+        educacao: "Orientação ao paciente",
+        evidencia: "Evidência atual (busca ao vivo)",
+      };
+      addTimeline(titleMap[mode], text.split("\n").slice(0, 3).join(" "), phase, [ENGINE_OF[mode]?.name.toLowerCase() || "ai"]);
+      toast.success(`Gerado por ${ENGINE_OF[mode]?.name ?? "IA"}`);
     } catch (e: any) {
       toast.error(e.message || "Falha ao executar análise");
     } finally {
@@ -241,15 +251,11 @@ export default function Index() {
           <div className="ml-auto flex items-center gap-2">
             <Badge variant="outline" className="border-success/40 text-success gap-1"><Lock className="h-3 w-3" /> Modo sem identificação</Badge>
             <Badge variant="outline" className="border-primary/40 text-primary">Dr. João Otávio Rennó Grilo</Badge>
-            <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-secondary/40 p-1" title="Motor de IA">
-              <button
-                onClick={() => setAiProvider("gemini")}
-                className={`px-2 py-1 text-xs rounded-md transition ${aiProvider === "gemini" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              >Gemini</button>
-              <button
-                onClick={() => setAiProvider("openai")}
-                className={`px-2 py-1 text-xs rounded-md transition ${aiProvider === "openai" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              >OpenAI</button>
+            <div className="hidden md:flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/40 px-2 py-1 text-[10px]" title="Cada tarefa é roteada para a IA mais adequada">
+              <span className="text-muted-foreground uppercase tracking-wide">Motores:</span>
+              <Badge variant="outline" className="border-cyan-500/40 text-cyan-300 px-1.5 py-0">Gemini · raciocínio</Badge>
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 px-1.5 py-0">OpenAI · comunicação</Badge>
+              <Badge variant="outline" className="border-fuchsia-500/40 text-fuchsia-300 px-1.5 py-0">Grok · evidência</Badge>
             </div>
             <a href="/aprendizado"><Button size="sm" variant="ghost" className="gap-2"><Brain className="h-4 w-4" /> Base de aprendizado</Button></a>
             <Button size="sm" variant="outline" onClick={newCaseAction}>+ Novo caso</Button>
@@ -417,6 +423,7 @@ export default function Index() {
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Button onClick={() => runAI("executar")} disabled={loading || !filled.any} className="gap-2">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Executar análise
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.executar.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.executar.name}</Badge>
                   </Button>
                   {filled.any ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -467,10 +474,26 @@ export default function Index() {
                   <Textarea rows={2} value={active.consultation.plano || ""} onChange={e => updateCons({ plano: e.target.value })} />
                 </Field>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Button onClick={() => runAI("atualizar")} disabled={loading} className="gap-2"><Sparkles className="h-4 w-4" /> Atualizar raciocínio</Button>
-                  <Button variant="secondary" onClick={() => runAI("soap")} disabled={loading} className="gap-2"><FileText className="h-4 w-4" /> Gerar SOAP</Button>
-                  <Button variant="secondary" onClick={() => runAI("proximos")} disabled={loading} className="gap-2"><ClipboardList className="h-4 w-4" /> Próximos passos</Button>
-                  <Button variant="secondary" onClick={() => runAI("educacao")} disabled={loading} className="gap-2"><HeartPulse className="h-4 w-4" /> Orientação ao paciente</Button>
+                  <Button onClick={() => runAI("atualizar")} disabled={loading} className="gap-2">
+                    <Sparkles className="h-4 w-4" /> Atualizar raciocínio
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.atualizar.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.atualizar.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("soap")} disabled={loading} className="gap-2">
+                    <FileText className="h-4 w-4" /> Gerar SOAP
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.soap.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.soap.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("proximos")} disabled={loading} className="gap-2">
+                    <ClipboardList className="h-4 w-4" /> Próximos passos
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.proximos.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.proximos.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("educacao")} disabled={loading} className="gap-2">
+                    <HeartPulse className="h-4 w-4" /> Orientação ao paciente
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.educacao.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.educacao.name}</Badge>
+                  </Button>
+                  <Button variant="secondary" onClick={() => runAI("evidencia")} disabled={loading} className="gap-2">
+                    <Microscope className="h-4 w-4" /> Evidência atual
+                    <Badge variant="outline" className={`ml-1 ${ENGINE_OF.evidencia.cls} text-[9px] px-1 py-0`}>{ENGINE_OF.evidencia.name}</Badge>
+                  </Button>
                 </div>
               </div>
             </TabsContent>
