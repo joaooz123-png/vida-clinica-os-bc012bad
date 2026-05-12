@@ -241,27 +241,50 @@ async function callOpenRouter(system: string, user: string): Promise<CallResult>
   return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "openrouter", model };
 }
 
+// Lista de modelos NVIDIA para fallback automático em caso de 404.
+const NVIDIA_MODEL_FALLBACKS = [
+  Deno.env.get("NVIDIA_MODEL") || "meta/llama-3.3-70b-instruct",
+  "meta/llama-3.1-70b-instruct",
+  "nvidia/llama-3.1-nemotron-70b-instruct",
+  "meta/llama-3.1-8b-instruct",
+];
+const NVIDIA_MODELS = [...new Set(NVIDIA_MODEL_FALLBACKS)];
+
 async function callNvidia(system: string, user: string): Promise<CallResult> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   if (!key) return { ok: false, status: 500, error: "NVIDIA_API_KEY ausente." };
-  const model = Deno.env.get("NVIDIA_MODEL") || "meta/llama-3.3-70b-instruct";
-  const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model,
-      temperature: 0.3,
-      max_tokens: 4096,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-    }),
-  });
-  if (!r.ok) {
+
+  let lastResult: CallResult | undefined;
+
+  for (const model of NVIDIA_MODELS) {
+    const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        max_tokens: 4096,
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      }),
+    });
+
+    if (r.ok) {
+      const d = await r.json();
+      return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "nvidia-nim", model };
+    }
+
     const t = await r.text();
-    console.error("NVIDIA error", r.status, t);
-    return { ok: false, status: r.status, error: `NVIDIA ${r.status}`, detail: t };
+    console.error("NVIDIA error", model, r.status, t);
+    lastResult = { ok: false, status: r.status, error: `NVIDIA ${r.status}`, detail: t };
+
+    // 404 = modelo não encontrado; tenta próximo da lista antes de desistir.
+    if (r.status === 404) continue;
+
+    // Outros erros (429, 401, 500…) são fatais para este motor; não tenta próximo modelo.
+    break;
   }
-  const d = await r.json();
-  return { ok: true, analysis: d?.choices?.[0]?.message?.content ?? "", provider: "nvidia-nim", model };
+
+  return lastResult ?? { ok: false, status: 500, error: "NVIDIA: todos os modelos falharam." };
 }
 
 const CALL: Record<Engine, (s: string, u: string) => Promise<CallResult>> = {
