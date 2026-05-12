@@ -109,13 +109,16 @@ Você é o **AUDITOR CLÍNICO INDEPENDENTE — segunda opinião**. Sua missão �
 Seja direto, técnico e implacável com erros. Sem bajulação.`,
 };
 
-function pickEngine(mode: Mode, override?: string): Engine {
+// Ordem ideal por tarefa (quando todos os motores têm crédito).
+function idealEngine(mode: Mode, override?: string): Engine {
   if (override === "gemini" || override === "openai" || override === "grok" || override === "openrouter" || override === "nvidia") return override;
-  // Modo emergência: NVIDIA como motor principal enquanto os demais estão sem créditos.
-  return "nvidia";
+  if (mode === "soap" || mode === "educacao") return "openai";
+  if (mode === "evidencia") return "grok";
+  if (mode === "auditoria") return "openrouter";
+  return "gemini";
 }
 
-// Fallback chain — when primary is rate-limited or down, try the next available engine.
+// Cadeia de fallback por motor primário.
 const FALLBACK: Record<Engine, Engine[]> = {
   gemini:     ["openai", "openrouter", "nvidia", "grok"],
   openai:     ["gemini", "openrouter", "nvidia", "grok"],
@@ -123,6 +126,22 @@ const FALLBACK: Record<Engine, Engine[]> = {
   openrouter: ["gemini", "openai", "nvidia", "grok"],
   nvidia:     ["gemini", "openai", "openrouter", "grok"],
 };
+
+// ── Health cache: marca motores que retornaram 429/402 como "sem crédito" por um TTL.
+// Persiste em memória do isolate (sobrevive entre invocações enquanto o isolate vive).
+const QUOTA_TTL_MS = 5 * 60 * 1000; // 5 min
+const KEY_TTL_MS   = 60 * 60 * 1000; // 1 h (chave ausente raramente muda)
+const unhealthyUntil: Partial<Record<Engine, number>> = {};
+
+function isHealthy(e: Engine): boolean {
+  const t = unhealthyUntil[e];
+  return !t || t < Date.now();
+}
+function markUnhealthy(e: Engine, status: number) {
+  const ttl = status === 500 ? KEY_TTL_MS : QUOTA_TTL_MS; // 500 aqui = chave ausente
+  unhealthyUntil[e] = Date.now() + ttl;
+}
+function clearUnhealthy(e: Engine) { delete unhealthyUntil[e]; }
 
 type CallResult =
   | { ok: true; analysis: string; provider: string; model: string; citations?: any[] }
@@ -270,7 +289,7 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     const { preAttendance, consultation, postConsultation, mode: rawMode, provider } = payload ?? {};
     const mode: Mode = (PROMPTS as any)[rawMode] ? rawMode : "executar";
-    const primary = pickEngine(mode, provider);
+    const ideal = idealEngine(mode, provider);
     const SYSTEM_PROMPT = PROMPTS[mode];
 
     const userContent = `Modo: ${mode}
@@ -286,14 +305,24 @@ ${JSON.stringify(postConsultation ?? {}, null, 2)}
 
 Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva "Não aplicável neste momento".`;
 
-    // Try primary, then fallback chain on 429 / 5xx / missing-key (500).
-    const chain: Engine[] = [primary, ...FALLBACK[primary]];
+    // Cadeia completa: ideal + seus fallbacks, ordenando primeiro os saudáveis.
+    const fullChain: Engine[] = [ideal, ...FALLBACK[ideal]];
+    const healthy   = fullChain.filter(isHealthy);
+    const unhealthy = fullChain.filter((e) => !isHealthy(e));
+    // Se houver pelo menos um saudável, tentamos só os saudáveis primeiro;
+    // depois caímos para os marcados como sem crédito (caso o TTL esteja errado).
+    const chain: Engine[] = healthy.length > 0 ? [...healthy, ...unhealthy] : fullChain;
+    const primary = chain[0];
+    const skipped: Engine[] = unhealthy.length > 0 && healthy.length > 0
+      ? unhealthy.filter((e) => fullChain.indexOf(e) < fullChain.indexOf(primary))
+      : [];
     const attempts: { engine: Engine; status: number; error: string }[] = [];
 
     for (const engine of chain) {
       const res = await CALL[engine](SYSTEM_PROMPT, userContent);
       if (res.ok) {
-        const fellBack = engine !== primary;
+        clearUnhealthy(engine);
+        const fellBack = engine !== ideal;
         return new Response(
           JSON.stringify({
             analysis: res.analysis,
@@ -302,17 +331,20 @@ Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva
             role: ROLE_OF[engine],
             citations: res.citations,
             engineUsed: engine,
-            primaryEngine: primary,
+            primaryEngine: ideal,
             fellBack,
-            fallbackNote: fellBack ? `Motor primário (${primary}) indisponível — resposta gerada por ${engine}.` : undefined,
-            attempts: fellBack ? attempts : undefined,
+            fallbackNote: fellBack ? `Motor ideal (${ideal}) indisponível — resposta gerada por ${engine}.` : undefined,
+            skippedEngines: skipped.length ? skipped : undefined,
+            attempts: attempts.length ? attempts : undefined,
           }),
           { headers: jsonHeaders }
         );
       }
       attempts.push({ engine, status: res.status, error: res.error });
-      // Only fall back on transient/quota errors; on real 4xx (e.g. 400 bad request) stop.
-      const transient = res.status === 429 || res.status === 402 || res.status >= 500 || res.status === 503;
+      const isQuota   = res.status === 429 || res.status === 402;
+      const isMissing = res.status === 500 && /ausente/i.test(res.error);
+      const transient = isQuota || isMissing || res.status >= 500 || res.status === 503;
+      if (isQuota || isMissing) markUnhealthy(engine, isMissing ? 500 : res.status);
       if (!transient) {
         return new Response(
           JSON.stringify({ error: `Falha em ${engine}: ${res.error}`, detail: res.detail, attempts }),
