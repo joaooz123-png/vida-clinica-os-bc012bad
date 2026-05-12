@@ -168,6 +168,22 @@ export default function Index() {
     if (activeId === id) setActiveId(all[0]?.localCaseId || "");
   };
 
+  // Sections filled? — gates the single Executar button.
+  const filled = useMemo(() => {
+    if (!active) return { pre: false, consulta: false, pos: false, any: false, list: [] as string[] };
+    const p = active.preAttendance;
+    const c = active.consultation;
+    const o = active.postConsultation;
+    const pre = !!(p.queixaPrincipal || p.narrativa || (p.padrao?.length) || (p.areas?.length) || (p.redFlags?.length) || p.labs || p.imagens);
+    const consulta = !!(c.anamnese || c.examFisico || c.hipoteses || c.plano || (c.jointCount?.tender ?? 0) > 0 || (c.jointCount?.swollen ?? 0) > 0);
+    const pos = !!(o.diagnosticoFinal || o.conduta || o.examesPedidos || o.feedbackIA || o.correcaoMedico);
+    const list: string[] = [];
+    if (pre) list.push("Pré-atendimento");
+    if (consulta) list.push("Consulta");
+    if (pos) list.push("Pós-consulta");
+    return { pre, consulta, pos, any: pre || consulta || pos, list };
+  }, [active]);
+
   // Stats for learning dashboard
   const stats = useMemo(() => {
     const total = cases.length;
