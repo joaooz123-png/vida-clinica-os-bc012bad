@@ -73,6 +73,23 @@ export default function Index() {
     }
   }, []);
 
+  // Mobile UX: rolar até a saída da IA quando uma nova análise é gerada
+  useEffect(() => {
+    if (!analysis) return;
+    if (typeof window === "undefined") return;
+    if (window.innerWidth >= 1024) return; // só mobile/tablet
+    requestAnimationFrame(() => {
+      outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [analysis]);
+
+  // Travar scroll do body quando saída em modo expandido (overlay)
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = outputExpanded ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [outputExpanded]);
+
   const active = useMemo(() => cases.find(c => c.localCaseId === activeId), [cases, activeId]);
 
   const update = (patch: Partial<CaseSession>) => {
