@@ -55,6 +55,9 @@ export default function Index() {
   const [phase, setPhase] = useState<Phase>("pre");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState("");
+  const [outputExpanded, setOutputExpanded] = useState(false);
+  const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
+  const outputRef = useRef<HTMLDivElement | null>(null);
 
   // initialize
   useEffect(() => {
