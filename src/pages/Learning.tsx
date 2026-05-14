@@ -140,7 +140,7 @@ export default function Learning() {
             <Sparkles className="h-8 w-8 text-primary mx-auto mb-3" />
             <h2 className="text-base font-semibold">Sua base ainda está vazia.</h2>
             <p className="text-sm text-muted-foreground mt-1">Atenda casos no fluxo clínico — cada execução de IA, SOAP e evolução alimenta esta base anônima.</p>
-            <Link to="/" className="inline-block mt-4">
+            <Link to="/analise" className="inline-block mt-4">
               <Button className="gap-2"><HeartPulse className="h-4 w-4" /> Iniciar primeiro caso</Button>
             </Link>
           </div>
