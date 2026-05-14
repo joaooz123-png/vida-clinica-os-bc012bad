@@ -114,7 +114,7 @@ export default function Learning() {
       {/* Header */}
       <header className="border-b border-border/60 backdrop-blur sticky top-0 z-20 bg-background/70">
         <div className="container py-4 flex flex-wrap items-center gap-3">
-          <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <Link to="/analise" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Link>
           <div className="flex items-center gap-3 ml-2">
