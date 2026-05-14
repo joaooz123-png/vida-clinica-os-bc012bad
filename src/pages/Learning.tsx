@@ -114,7 +114,7 @@ export default function Learning() {
       {/* Header */}
       <header className="border-b border-border/60 backdrop-blur sticky top-0 z-20 bg-background/70">
         <div className="container py-4 flex flex-wrap items-center gap-3">
-          <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <Link to="/analise" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Link>
           <div className="flex items-center gap-3 ml-2">
@@ -140,7 +140,7 @@ export default function Learning() {
             <Sparkles className="h-8 w-8 text-primary mx-auto mb-3" />
             <h2 className="text-base font-semibold">Sua base ainda está vazia.</h2>
             <p className="text-sm text-muted-foreground mt-1">Atenda casos no fluxo clínico — cada execução de IA, SOAP e evolução alimenta esta base anônima.</p>
-            <Link to="/" className="inline-block mt-4">
+            <Link to="/analise" className="inline-block mt-4">
               <Button className="gap-2"><HeartPulse className="h-4 w-4" /> Iniciar primeiro caso</Button>
             </Link>
           </div>
