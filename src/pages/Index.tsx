@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/Markdown";
 import {
-  Activity, AlertTriangle, Brain, ClipboardList, Download, FileText,
-  HeartPulse, Inbox, Link2, Loader2, Lock, Microscope, Printer, Save, Sparkles, Stethoscope, Trash2, User
+  Activity, AlertTriangle, Brain, ChevronDown, ChevronUp, ClipboardList, Copy, Download, FileText,
+  HeartPulse, Inbox, Link2, Loader2, Lock, Maximize2, Microscope, Minimize2, Printer, Save, Sparkles, Stethoscope, Trash2, User
 } from "lucide-react";
 import {
   CaseSession, loadCases, newCase, upsertCase, saveCases, Phase,
