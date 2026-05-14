@@ -629,13 +629,34 @@ export default function Index() {
               active.outputs.consultationAssessment ||
               active.outputs.triage ||
               "";
+            const copyOutput = async () => {
+              try {
+                await navigator.clipboard.writeText(display);
+                toast.success("Saída copiada");
+              } catch {
+                toast.error("Não foi possível copiar");
+              }
+            };
             return (
-              <div className="panel min-h-[300px]">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="h-4 w-4 text-primary" />
+              <div ref={outputRef} className={`panel ${outputExpanded ? "fixed inset-2 z-40 overflow-hidden flex flex-col" : "min-h-[300px] lg:sticky lg:top-28"}`}>
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <Sparkles className="h-4 w-4 text-primary shrink-0" />
                   <h2 className="text-sm font-semibold">Saída da IA — copiloto clínico</h2>
-                  {display && !loading && <Badge variant="outline" className="ml-auto text-[10px] border-primary/40 text-primary">Markdown</Badge>}
-                  {loading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-auto" />}
+                  {display && !loading && <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">Markdown</Badge>}
+                  {loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                  <div className="ml-auto flex items-center gap-1">
+                    {display && !loading && (
+                      <>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]" onClick={copyOutput} title="Copiar">
+                          <Copy className="h-3.5 w-3.5" /> Copiar
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]" onClick={() => setOutputExpanded(v => !v)} title={outputExpanded ? "Recolher" : "Expandir"}>
+                          {outputExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                          <span className="hidden sm:inline">{outputExpanded ? "Recolher" : "Expandir"}</span>
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 {loading && (
                   <div className="space-y-2 animate-pulse">
@@ -652,9 +673,15 @@ export default function Index() {
                   </div>
                 )}
                 {!loading && display && (
-                  <ScrollArea className="h-[60vh] pr-3">
+                  <div
+                    className={`overflow-y-auto overscroll-contain pr-2 -mr-1 ${
+                      outputExpanded
+                        ? "flex-1"
+                        : "max-h-[55vh] sm:max-h-[60vh] lg:max-h-[calc(100vh-12rem)]"
+                    }`}
+                  >
                     <Markdown>{display}</Markdown>
-                  </ScrollArea>
+                  </div>
                 )}
               </div>
             );
@@ -668,7 +695,7 @@ export default function Index() {
             </div>
 
             {/* Evolution snapshot — Pré → Consulta → Pós */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
               {([
                 {
                   k: "pre", label: "Pré", icon: ClipboardList,
@@ -714,9 +741,9 @@ export default function Index() {
                     {s.lines.length === 0 ? (
                       <div className="text-[11px] text-muted-foreground/70 mt-1.5 italic">vazio</div>
                     ) : (
-                      <ul className="mt-1.5 space-y-0.5">
+                      <ul className="mt-1.5 space-y-1">
                         {s.lines.map((l, i) => (
-                          <li key={i} className="text-[11px] text-foreground/85 leading-snug line-clamp-2">{l}</li>
+                          <li key={i} className="text-[11px] text-foreground/85 leading-snug break-words">{l}</li>
                         ))}
                       </ul>
                     )}
@@ -754,21 +781,39 @@ export default function Index() {
                           <span className="text-foreground/40">· {evs.length}</span>
                         </div>
                         <ol className="relative border-l border-border/60 ml-1.5 space-y-2.5">
-                          {evs.map((t, i) => (
-                            <li key={i} className="ml-4">
-                              <div className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full ${phaseMeta[p].dot} ring-4 ${phaseMeta[p].ring}`} />
-                              <div className="text-[10px] text-muted-foreground tabular-nums">{new Date(t.date).toLocaleString("pt-BR")}</div>
-                              <div className="text-sm font-medium leading-tight">{t.title}</div>
-                              {t.summary && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{t.summary}</div>}
-                              {t.tags?.length ? (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {t.tags.map((tg) => (
-                                    <Badge key={tg} variant="outline" className="text-[9px] py-0 px-1.5">{tg}</Badge>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </li>
-                          ))}
+                          {evs.map((t, i) => {
+                            const evKey = `${p}-${i}-${t.date}`;
+                            const isOpen = !!expandedEvents[evKey];
+                            const longSummary = !!t.summary && t.summary.length > 120;
+                            return (
+                              <li key={evKey} className="ml-4">
+                                <div className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full ${phaseMeta[p].dot} ring-4 ${phaseMeta[p].ring}`} />
+                                <div className="text-[10px] text-muted-foreground tabular-nums">{new Date(t.date).toLocaleString("pt-BR")}</div>
+                                <div className="text-sm font-medium leading-tight break-words">{t.title}</div>
+                                {t.summary && (
+                                  <div className={`text-xs text-muted-foreground mt-0.5 break-words whitespace-pre-wrap ${isOpen ? "" : "line-clamp-2"}`}>
+                                    {t.summary}
+                                  </div>
+                                )}
+                                {longSummary && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedEvents(s => ({ ...s, [evKey]: !isOpen }))}
+                                    className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                                  >
+                                    {isOpen ? (<><ChevronUp className="h-3 w-3" /> Ver menos</>) : (<><ChevronDown className="h-3 w-3" /> Ver mais</>)}
+                                  </button>
+                                )}
+                                {t.tags?.length ? (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {t.tags.map((tg) => (
+                                      <Badge key={tg} variant="outline" className="text-[9px] py-0 px-1.5">{tg}</Badge>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </li>
+                            );
+                          })}
                         </ol>
                       </div>
                     );
@@ -782,15 +827,16 @@ export default function Index() {
             <div className="flex items-center gap-2 mb-3">
               <ClipboardList className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold">Casos locais (anônimos)</h2>
+              <Badge variant="outline" className="ml-auto text-[10px]">{cases.length}</Badge>
             </div>
-            <div className="space-y-1.5 max-h-64 overflow-auto">
+            <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
               {cases.map(c => (
                 <div key={c.localCaseId} className={`flex items-center gap-2 rounded-lg border p-2 ${c.localCaseId === activeId ? "border-primary/60 bg-primary/5" : "border-border/60"}`}>
-                  <button className="flex-1 text-left" onClick={() => { setActiveId(c.localCaseId); setAnalysis(""); }}>
-                    <div className="text-sm font-medium">{c.localCaseId} · {c.preAttendance.queixaPrincipal || "sem queixa"}</div>
-                    <div className="text-[11px] text-muted-foreground">{new Date(c.updatedAt).toLocaleString("pt-BR")}</div>
+                  <button className="flex-1 text-left min-w-0" onClick={() => { setActiveId(c.localCaseId); setAnalysis(""); }}>
+                    <div className="text-sm font-medium truncate">{c.localCaseId} · {c.preAttendance.queixaPrincipal || "sem queixa"}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{new Date(c.updatedAt).toLocaleString("pt-BR")}</div>
                   </button>
-                  <Button size="icon" variant="ghost" onClick={() => deleteCase(c.localCaseId)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                  <Button size="icon" variant="ghost" className="shrink-0" onClick={() => deleteCase(c.localCaseId)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
                 </div>
               ))}
             </div>
