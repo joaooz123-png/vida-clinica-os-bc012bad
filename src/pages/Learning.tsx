@@ -114,9 +114,9 @@ export default function Learning() {
       {/* Header */}
       <header className="border-b border-border/60 backdrop-blur sticky top-0 z-20 bg-background/70">
         <div className="container py-4 flex flex-wrap items-center gap-3">
-          <Link to="/analise">
+          <Link to="/">
             <Button size="sm" variant="ghost" className="gap-2">
-              <ArrowLeft className="h-4 w-4" /> Voltar para análise
+              <ArrowLeft className="h-4 w-4" /> Workspace clínico
             </Button>
           </Link>
           <div className="flex items-center gap-3 ml-2">
