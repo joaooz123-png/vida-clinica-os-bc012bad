@@ -114,8 +114,10 @@ export default function Learning() {
       {/* Header */}
       <header className="border-b border-border/60 backdrop-blur sticky top-0 z-20 bg-background/70">
         <div className="container py-4 flex flex-wrap items-center gap-3">
-          <Link to="/analise" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Voltar
+          <Link to="/analise">
+            <Button size="sm" variant="ghost" className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Voltar para análise
+            </Button>
           </Link>
           <div className="flex items-center gap-3 ml-2">
             <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: "var(--gradient-cyan)" }}>
