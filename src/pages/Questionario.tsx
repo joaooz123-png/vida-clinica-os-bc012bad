@@ -135,6 +135,9 @@ export default function Questionario() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Badge variant="outline" className="border-success/40 text-success gap-1"><Lock className="h-3 w-3" /> Sem identificação</Badge>
+            <Link to="/analise">
+              <Button size="sm" variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" /> Voltar para análise</Button>
+            </Link>
             <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-2"><Printer className="h-4 w-4" /> Imprimir</Button>
           </div>
         </div>
