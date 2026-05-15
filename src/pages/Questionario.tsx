@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import {
-  HeartPulse, Printer, Send, Copy, Check, ClipboardList, Lock, Activity, ShieldCheck,
+  ArrowLeft, HeartPulse, Printer, Send, Copy, Check, ClipboardList, Lock, Activity, ShieldCheck,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import type { PreAttendance } from "@/lib/caseStore";
 
