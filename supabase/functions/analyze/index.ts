@@ -389,17 +389,14 @@ Gere a resposta no formato obrigatório. Se uma seção não se aplicar, escreva
         );
       }
       attempts.push({ engine, status: res.status, error: res.error });
-      const isQuota   = res.status === 429 || res.status === 402;
-      const isMissing = res.status === 500 && /ausente/i.test(res.error);
-      const isModel404 = res.status === 404; // modelo inválido/indisponível
-      const transient = isQuota || isMissing || isModel404 || res.status >= 500 || res.status === 503;
-      if (isQuota || isMissing || isModel404) markUnhealthy(engine, (isMissing || isModel404) ? 500 : res.status);
-      if (!transient) {
-        return new Response(
-          JSON.stringify({ error: `Falha em ${engine}: ${res.error}`, detail: res.detail, attempts }),
-          { status: res.status, headers: jsonHeaders }
-        );
-      }
+      // Política: NUNCA quebrar a UX por falha de um único motor.
+      // Toda falha de provedor é tratada como transitória → marca unhealthy e cai para o próximo da cadeia.
+      const isQuota    = res.status === 429 || res.status === 402;
+      const isMissing  = res.status === 500 && /ausente/i.test(res.error);
+      const isAuth     = res.status === 401 || res.status === 403; // chave inválida / bloqueada / região
+      const isModel404 = res.status === 404;
+      markUnhealthy(engine, (isMissing || isAuth || isModel404) ? 500 : (isQuota ? res.status : 500));
+      // segue o loop para o próximo motor
     }
 
     // All providers exhausted.
